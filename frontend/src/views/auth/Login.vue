@@ -97,7 +97,7 @@
 
     <!-- Logo - Top Left -->
     <div class="header-logo" title="WunoOS">
-      <img src="@/assets/img/wunoos-mark.png" alt="WunoOS" class="logo-image" />
+      <img src="@/assets/img/wunoos-mark.svg" alt="WunoOS" class="logo-image" />
       <span class="logo-name">WunoOS</span>
     </div>
 

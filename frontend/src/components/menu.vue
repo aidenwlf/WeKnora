@@ -3,7 +3,8 @@
         <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
         <div class="logo_row" v-if="!uiStore.sidebarCollapsed">
             <div class="logo_box" @click="router.push('/platform/knowledge-bases')" style="cursor: pointer;">
-                <img class="logo" src="@/assets/img/weknora.png" alt="">
+                <img class="logo-mark" src="@/assets/img/wunoos-mark.png" alt="WunoOS">
+                <span class="logo-name">WunoOS</span>
                 <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
             </div>
             <div class="logo_actions">
@@ -1385,9 +1386,23 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         min-width: 0;
         overflow: hidden;
 
-        .logo {
-            width: 108px;
-            height: auto;
+        .logo-mark {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+            flex-shrink: 0;
+            border-radius: 9px;
+            background: #fff;
+            box-shadow: 0 0 0 1px rgba(0, 82, 217, 0.08);
+        }
+
+        .logo-name {
+            margin-left: 8px;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--td-text-color-primary);
+            white-space: nowrap;
         }
 
         .lite-badge {
@@ -2002,10 +2017,7 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
 }
 </style>
 <style lang="less">
-// Dark mode: invert dark logo to light
-html[theme-mode="dark"] .aside_box .logo_box .logo {
-    filter: invert(1) hue-rotate(180deg);
-}
+// Dark mode: the WunoOS mark keeps its own colors.
 
 // Dark mode: 滚动条在深色背景下需要更亮的颜色才看得见
 html[theme-mode="dark"] .aside_box .menu_top:hover {

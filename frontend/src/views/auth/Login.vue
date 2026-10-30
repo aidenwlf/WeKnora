@@ -96,9 +96,10 @@
     </div>
 
     <!-- Logo - Top Left -->
-    <a href="https://github.com/Tencent/WeKnora" target="_blank" class="header-logo" :title="$t('common.github')">
-      <img src="@/assets/img/weknora.png" alt="WeKnora" class="logo-image" />
-    </a>
+    <div class="header-logo" title="WunoOS">
+      <img src="@/assets/img/wunoos-mark.png" alt="WunoOS" class="logo-image" />
+      <span class="logo-name">WunoOS</span>
+    </div>
 
     <!-- Header Links - Top Right -->
     <div class="header-links">
@@ -1192,11 +1193,25 @@ onMounted(async () => {
   top: 32px;
   left: 50px;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   cursor: pointer;
 
   .logo-image {
-    width: 120px;
-    height: auto;
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .logo-name {
+    color: #fff;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
   }
 }
 
@@ -1647,7 +1662,8 @@ onMounted(async () => {
     left: 40px;
 
     .logo-image {
-      width: 100px;
+      width: 44px;
+      height: 44px;
     }
   }
 
@@ -1697,7 +1713,8 @@ onMounted(async () => {
     left: 30px;
 
     .logo-image {
-      width: 80px;
+      width: 40px;
+      height: 40px;
     }
   }
 
@@ -1758,7 +1775,8 @@ onMounted(async () => {
     left: 20px;
 
     .logo-image {
-      width: 70px;
+      width: 36px;
+      height: 36px;
     }
   }
 
@@ -1831,7 +1849,7 @@ html[theme-mode="dark"] {
   }
 
   .header-logo .logo-image {
-    filter: invert(1) hue-rotate(180deg) brightness(1.1);
+    filter: none;
   }
 
   .header-link {

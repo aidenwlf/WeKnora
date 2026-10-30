@@ -2058,7 +2058,7 @@ html[theme-mode="dark"] .aside_box .menu_item_c_active .menu_icon img.icon {
     opacity: 0.9;
 }
 
-// Active (green) icons should not be inverted
+// Active (brand blue) icons should not be inverted
 html[theme-mode="dark"] .aside_box .menu_item_active .menu_icon img.icon {
     filter: none;
     opacity: 1;

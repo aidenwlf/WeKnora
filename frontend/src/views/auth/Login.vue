@@ -833,7 +833,7 @@ onMounted(async () => {
   min-height: 100%;
   overflow: hidden;
   position: relative;
-  background: linear-gradient(225deg, #022c22 0%, #064e3b 15%, #065f46 25%, #047857 38%, #059669 50%, #07C05F 65%, #10B981 78%, #34D399 90%, #6EE7B7 100%);
+  background: linear-gradient(225deg, #031b4e 0%, #052a66 15%, #06337a 25%, #06469c 38%, #0057f2 50%, #0a83ff 65%, #35d2ff 78%, #7fe6ff 90%, #c9f7ff 100%);
 
   &::before {
     content: '';
@@ -869,7 +869,7 @@ onMounted(async () => {
   border: 2px solid rgba(255, 255, 255, 0.3);
   box-shadow:
     0 0 15px rgba(255, 255, 255, 0.35),
-    0 0 30px rgba(16, 185, 129, 0.2),
+    0 0 30px rgba(0, 87, 242, 0.25),
     inset 0 0 8px rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
@@ -1327,7 +1327,7 @@ onMounted(async () => {
   }
 
   &.active {
-    background: var(--td-success-color-light);
+    background: var(--td-brand-color-light);
     color: var(--td-brand-color-active);
   }
 }
@@ -1417,7 +1417,7 @@ onMounted(async () => {
   margin: 10px 0 0;
   padding: 8px 12px;
   border-radius: var(--app-radius-md);
-  background: var(--td-success-color-light);
+  background: var(--td-brand-color-light);
   color: var(--td-brand-color-active);
   font-size: 12.5px;
   line-height: 1.5;
@@ -1465,7 +1465,7 @@ onMounted(async () => {
     &:hover {
       border-color: var(--td-brand-color-active);
       color: var(--td-brand-color-active);
-      background: var(--td-success-color-light);
+      background: var(--td-brand-color-light);
     }
   }
 }
@@ -1626,7 +1626,7 @@ onMounted(async () => {
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      background: var(--td-success-color-light);
+      background: var(--td-brand-color-light);
       color: var(--td-brand-color-active);
       display: flex;
       align-items: center;
@@ -1835,7 +1835,7 @@ onMounted(async () => {
 <style lang="less">
 html[theme-mode="dark"] {
   .login-layout {
-    background: linear-gradient(225deg, #011a14 0%, #032e22 15%, #043a2c 25%, #05503d 38%, #046647 50%, #038a56 65%, #049b60 78%, #06a06a 90%, #07b074 100%);
+    background: linear-gradient(225deg, #010b20 0%, #03132e 15%, #041b3d 25%, #062a5c 38%, #083a7a 50%, #0a4f9e 65%, #0c66c4 78%, #1182e8 90%, #1aa4ff 100%);
   }
 
   .knowledge-node {
@@ -1907,7 +1907,7 @@ html[theme-mode="dark"] {
   }
 
   .login-features .feature-icon {
-    background: rgba(6, 176, 77, 0.15);
+    background: rgba(0, 109, 255, 0.15);
   }
 }
 </style>

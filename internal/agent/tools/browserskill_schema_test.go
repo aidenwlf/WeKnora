@@ -58,6 +58,14 @@ func TestBrowserFlatSchemaCoversEveryMethod(t *testing.T) {
 	}
 }
 
+func TestBrowserInfersUnambiguousMissingMethod(t *testing.T) {
+	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
+	raw := normalizeBrowserArguments(json.RawMessage(`{"expression":"document.title","tab_id":3}`))
+	require.JSONEq(t, `{"expression":"document.title","tab_id":3,"method":"evaluate"}`, string(raw))
+	require.NoError(t, tool.ValidateArguments(raw))
+	require.Error(t, tool.ValidateArguments(json.RawMessage(`{}`)))
+}
+
 func TestBrowserFlatArgumentsRejectBeforeDispatch(t *testing.T) {
 	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
 	for _, raw := range []string{

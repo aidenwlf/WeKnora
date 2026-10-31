@@ -490,6 +490,58 @@ var browserInputSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 
 // ValidateArguments enforces the flat schema and the selected operation's
 // required fields before opening a browser or executing any page action.
+// inferBrowserMethod recovers the method when a model omits it but supplies a
+// field that belongs to exactly one operation. Ambiguous shapes still fail.
+func inferBrowserMethod(input map[string]any) (string, bool) {
+	for _, candidate := range []struct {
+		method string
+		fields []string
+	}{
+		{"evaluate", []string{"expression"}},
+		{"wait_ms", []string{"duration_ms"}},
+		{"request_help", []string{"prompt"}},
+		{"navigate", []string{"url"}},
+		{"wheel", []string{"delta_x", "delta_y"}},
+		{"window_resize", []string{"width", "height"}},
+		{"select", []string{"values"}},
+		{"press", []string{"key"}},
+		{"fill", []string{"value"}},
+		{"emulate", []string{"off", "overrides"}},
+		{"tab_list", []string{"scope"}},
+		{"reload", []string{"hard"}},
+		{"observe", []string{"debug_surfaces", "max_text_chars", "probe_hover"}},
+	} {
+		for _, field := range candidate.fields {
+			if _, ok := input[field]; ok {
+				return candidate.method, true
+			}
+		}
+	}
+	return "", false
+}
+
+// normalizeBrowserArguments rewrites an unambiguous missing method so the
+// registry validator and Execute see the same canonical arguments.
+func normalizeBrowserArguments(args json.RawMessage) json.RawMessage {
+	var input map[string]any
+	if json.Unmarshal(args, &input) != nil {
+		return args
+	}
+	if method, ok := input["method"].(string); ok && method != "" {
+		return args
+	}
+	method, ok := inferBrowserMethod(input)
+	if !ok {
+		return args
+	}
+	input["method"] = method
+	normalized, err := json.Marshal(input)
+	if err != nil {
+		return args
+	}
+	return normalized
+}
+
 func (t *BrowserSkillTool) ValidateArguments(args json.RawMessage) error {
 	value, err := jsonschema.UnmarshalJSON(bytes.NewReader(args))
 	if err != nil {
@@ -505,7 +557,11 @@ func (t *BrowserSkillTool) ValidateArguments(args json.RawMessage) error {
 	}
 	method, ok := input["method"].(string)
 	if !ok || method == "" {
-		return fmt.Errorf("method is required and must be a string")
+		var inferred bool
+		method, inferred = inferBrowserMethod(input)
+		if !inferred {
+			return fmt.Errorf("method is required and must be a string")
+		}
 	}
 	rule, ok := browserArgumentRules[method]
 	if !ok {

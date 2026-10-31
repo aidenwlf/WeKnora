@@ -69,6 +69,9 @@ func TestBrowserWaitRequiresDocumentedDuration(t *testing.T) {
 	ctx := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(7))
 	ctx = context.WithValue(ctx, types.UserIDContextKey, "alice")
 	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
+	require.NoError(t, tool.ValidateArguments(
+		json.RawMessage(`{"method":"wait_ms","duration_ms":1000,"tab_id":3}`),
+	))
 	for _, raw := range []string{
 		`{"method":"wait_ms"}`, `{"method":"wait_ms","ms":1000}`,
 		`{"method":"wait_ms","duration_ms":-1}`, `{"method":"wait_ms","duration_ms":0.5}`,

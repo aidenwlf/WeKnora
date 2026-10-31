@@ -456,7 +456,7 @@ var browserArgumentRules = map[string]browserArgumentRule{
 		required: []string{},
 	},
 	"wait_ms": {
-		fields:   []string{"duration_ms"},
+		fields:   []string{"duration_ms", "tab_id"},
 		required: []string{"duration_ms"},
 	},
 	"window_resize": {
@@ -568,6 +568,8 @@ func browserCallParams(method string, input map[string]any) map[string]any {
 		out[name] = value
 	}
 	switch method {
+	case "wait_ms":
+		delete(out, "tab_id")
 	case "observe", "snapshot":
 		chars, ok := out["max_text_chars"]
 		if !ok {

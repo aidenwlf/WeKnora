@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -122,16 +123,9 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 	}
 	t.used.Store(true)
 	if browserActionNeedsCooperation(method) {
-		syncResult, syncErr := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync"})
+		contextID, syncErr := t.syncCooperation(ctx)
 		if syncErr == nil {
-			var sync struct {
-				ContextID string `json:"context_id"`
-			}
-			if json.Unmarshal(syncResult, &sync) != nil || sync.ContextID == "" {
-				syncErr = errors.New("BrowserSkill cooperate sync returned no context")
-			} else {
-				params["context_id"] = sync.ContextID
-			}
+			params["context_id"] = contextID
 		}
 		if syncErr != nil && !browserBootstrapAction(method) {
 			t.failed.Store(true)
@@ -144,6 +138,43 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 		return browserToolFailure(method, err), nil
 	}
 	return t.interpretResult(method, result), nil
+}
+
+// syncCooperation obtains the single-use context every mutating action needs.
+// A page can change while the extension captures its snapshot; wait for the
+// shared tab to settle and retry once instead of surfacing a transient failure.
+func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, error) {
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync"})
+		if err == nil {
+			var sync struct {
+				ContextID string `json:"context_id"`
+			}
+			if json.Unmarshal(result, &sync) == nil && sync.ContextID != "" {
+				return sync.ContextID, nil
+			}
+			err = errors.New("BrowserSkill cooperate sync returned no context")
+		}
+		lastErr = err
+		if attempt == 0 && cooperationSyncRetryable(err) {
+			_, _ = t.manager.Call(ctx, t.scope, t.session, "cooperate",
+				map[string]any{"action": "wait", "timeout_ms": 1500})
+			continue
+		}
+		break
+	}
+	return "", lastErr
+}
+
+func cooperationSyncRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "page changed while synchronizing") ||
+		strings.Contains(message, "cooperation_sync_required") ||
+		strings.Contains(message, "sync again after it settles")
 }
 
 // browserActionNeedsCooperation reports whether the extension now requires a

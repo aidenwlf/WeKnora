@@ -121,12 +121,54 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 		return &types.ToolResult{Success: false, Error: t.prepareErr.Error()}, nil
 	}
 	t.used.Store(true)
+	if browserActionNeedsCooperation(method) {
+		syncResult, syncErr := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync"})
+		if syncErr == nil {
+			var sync struct {
+				ContextID string `json:"context_id"`
+			}
+			if json.Unmarshal(syncResult, &sync) != nil || sync.ContextID == "" {
+				syncErr = errors.New("BrowserSkill cooperate sync returned no context")
+			} else {
+				params["context_id"] = sync.ContextID
+			}
+		}
+		if syncErr != nil && !browserBootstrapAction(method) {
+			t.failed.Store(true)
+			return browserToolFailure(method, syncErr), nil
+		}
+	}
 	result, err := t.manager.Call(ctx, t.scope, t.session, method, params)
 	if err != nil {
 		t.failed.Store(true)
 		return browserToolFailure(method, err), nil
 	}
 	return t.interpretResult(method, result), nil
+}
+
+// browserActionNeedsCooperation reports whether the extension now requires a
+// fresh shared-control context for this action. Passive reads and session/tab
+// management stay outside the single-use context.
+func browserActionNeedsCooperation(method string) bool {
+	switch method {
+	case "observe", "snapshot", "get_html", "screenshot", "console", "network",
+		"tab_list", "wait_for_navigation", "request_help",
+		"tab_create", "tab_borrow", "tab_select", "tab_return":
+		return false
+	default:
+		return true
+	}
+}
+
+// browserBootstrapAction lists the actions the extension permits before the
+// first cooperate sync. They still use a context when one is available.
+func browserBootstrapAction(method string) bool {
+	switch method {
+	case "navigate", "emulate", "window_resize", "tab_close":
+		return true
+	default:
+		return false
+	}
 }
 
 // Cleanup reclaims successful temporary tasks; unfinished work retains its pages.

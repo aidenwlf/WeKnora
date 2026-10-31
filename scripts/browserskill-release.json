@@ -1,11 +1,11 @@
 {
-  "version": "0.3.1",
+  "version": "0.4.0",
   "extension": {
-    "version": "0.3.1",
-    "source_commit": "da6bf4eed2dd7256567e152df8c903c87f6598c3"
+    "version": "0.4.0",
+    "source_commit": "7e300ff6a35b326ac9abd03f315f30769ad01861"
   },
   "daemon": {
-    "source_commit": "da6bf4eed2dd7256567e152df8c903c87f6598c3",
+    "source_commit": "7e300ff6a35b326ac9abd03f315f30769ad01861",
     "build": "cargo build --locked --release -p bsk"
   }
 }

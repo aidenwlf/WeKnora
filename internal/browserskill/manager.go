@@ -845,6 +845,7 @@ var methods = map[string]bool{
 	"window_resize":       true,
 	"emulate":             true,
 	"request_help":        true,
+	"cooperate":           true,
 }
 
 // Call serializes authorized automation commands within a conversation task.

@@ -126,6 +126,7 @@ type browserLifecycleManager struct {
 	callErr    error
 	response   json.RawMessage
 	calls      int
+	methods    []string
 	retained   []bool
 	cleanupErr error
 }
@@ -141,6 +142,10 @@ func (m *browserLifecycleManager) Control(context.Context, browserskill.Scope, s
 func (m *browserLifecycleManager) Call(
 	_ context.Context, _ browserskill.Scope, _ string, method string, params map[string]any,
 ) (json.RawMessage, error) {
+	m.methods = append(m.methods, method)
+	if method == "cooperate" {
+		return json.RawMessage(`{"context_id":"test-context"}`), nil
+	}
 	m.params = params
 	m.calls++
 	if m.response != nil {
@@ -156,6 +161,26 @@ func (m *browserLifecycleManager) FinishTurn(ctx context.Context, _ browserskill
 	m.cleanupErr = ctx.Err()
 	m.retained = append(m.retained, keep)
 	return nil
+}
+
+func TestBrowserActionsUseFreshCooperationContext(t *testing.T) {
+	ctx := context.WithValue(t.Context(), types.TenantIDContextKey, uint64(7))
+	ctx = context.WithValue(ctx, types.UserIDContextKey, "alice")
+	manager := &browserLifecycleManager{}
+	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
+	tool.manager = manager
+
+	result, err := tool.Execute(ctx, json.RawMessage(`{"method":"click","ref":"e1"}`))
+	require.NoError(t, err)
+	require.True(t, result.Success)
+	require.Equal(t, []string{"cooperate", "click"}, manager.methods)
+	require.Equal(t, "test-context", manager.params["context_id"])
+
+	manager.methods = nil
+	result, err = tool.Execute(ctx, json.RawMessage(`{"method":"observe"}`))
+	require.NoError(t, err)
+	require.True(t, result.Success)
+	require.Equal(t, []string{"observe"}, manager.methods)
 }
 
 func TestBrowserTurnRetention(t *testing.T) {

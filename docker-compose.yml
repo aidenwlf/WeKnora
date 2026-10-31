@@ -65,8 +65,8 @@ services:
       # uncomment the line below. See website-docs/03-features/06-models.md.
       # - ./config/builtin_models.yaml:/app/config/builtin_models.yaml:ro
       # Optional: model catalog overlay (extra vendors / model overrides).
-      # Copy config/models.json.example to config/models.json, then
-      # - ./config/models.json:/app/config/models.json:ro
+      # config/models.json ships the OpenCode Go provider and its model catalog.
+      - ./config/models.json:/app/config/models.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

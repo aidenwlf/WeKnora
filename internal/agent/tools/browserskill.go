@@ -147,7 +147,7 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, error) {
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
-		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync"})
+		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync", "control_policy": "strict"})
 		if err == nil {
 			var sync struct {
 				ContextID string `json:"context_id"`

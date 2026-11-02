@@ -124,9 +124,12 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 	}
 	t.used.Store(true)
 	if browserActionNeedsCooperation(method) {
-		contextID, syncErr := t.syncCooperation(ctx)
+		contextID, observationID, syncErr := t.syncCooperation(ctx)
 		if syncErr == nil {
 			params["context_id"] = contextID
+			if observationID != "" {
+				params["observation_id"] = observationID
+			}
 		}
 		if syncErr != nil && !browserBootstrapAction(method) {
 			t.failed.Store(true)
@@ -144,16 +147,17 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 // syncCooperation obtains the single-use context every mutating action needs.
 // A page can change while the extension captures its snapshot; wait for the
 // shared tab to settle and retry once instead of surfacing a transient failure.
-func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, error) {
+func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, string, error) {
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
-		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync", "control_policy": "strict"})
+		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync", "control_policy": "target"})
 		if err == nil {
 			var sync struct {
-				ContextID string `json:"context_id"`
+				ContextID     string `json:"context_id"`
+				ObservationID string `json:"observation_id"`
 			}
 			if json.Unmarshal(result, &sync) == nil && sync.ContextID != "" {
-				return sync.ContextID, nil
+				return sync.ContextID, sync.ObservationID, nil
 			}
 			err = errors.New("BrowserSkill cooperate sync returned no context")
 		}
@@ -165,7 +169,7 @@ func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, error) 
 		}
 		break
 	}
-	return "", lastErr
+	return "", "", lastErr
 }
 
 func cooperationSyncRetryable(err error) bool {

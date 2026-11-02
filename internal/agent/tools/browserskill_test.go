@@ -147,7 +147,7 @@ func (m *browserLifecycleManager) Call(
 ) (json.RawMessage, error) {
 	m.methods = append(m.methods, method)
 	if method == "cooperate" {
-		return json.RawMessage(`{"context_id":"test-context"}`), nil
+		return json.RawMessage(`{"context_id":"test-context","observation_id":"test-observation"}`), nil
 	}
 	m.params = params
 	m.calls++

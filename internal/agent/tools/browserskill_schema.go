@@ -130,6 +130,28 @@ const browserToolParameters = `{
       "minLength": 1,
       "description": "CSS selector, alternative to ref."
     },
+    "expect": {
+      "type": "array",
+      "description": "Optional target-policy assertions, such as [{\"target\":\"@e1\",\"field\":\"text\",\"equals\":\"OK\"}]. Use for business facts that must hold after the action.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "field": {
+            "type": "string",
+            "enum": ["text", "value", "checked", "count", "attribute", "url"]
+          },
+          "equals": {},
+          "attribute": {
+            "type": "string"
+          }
+        },
+        "required": ["target", "field"]
+      }
+    },
     "clear_before": {
       "type": "boolean"
     },
@@ -376,39 +398,39 @@ var browserArgumentRules = map[string]browserArgumentRule{
 		required: []string{},
 	},
 	"click": {
-		fields:   []string{"button", "click_count", "modifiers", "ref", "selector", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "button", "click_count", "modifiers", "ref", "selector", "tab_id", "timeout_ms"},
 		required: []string{},
 	},
 	"fill": {
-		fields:   []string{"clear_before", "ref", "selector", "tab_id", "timeout_ms", "value"},
+		fields:   []string{"expect", "clear_before", "ref", "selector", "tab_id", "timeout_ms", "value"},
 		required: []string{"value"},
 	},
 	"press": {
-		fields:   []string{"hold_ms", "key", "modifiers", "ref", "selector", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "hold_ms", "key", "modifiers", "ref", "selector", "tab_id", "timeout_ms"},
 		required: []string{"key"},
 	},
 	"hover": {
-		fields:   []string{"modifiers", "ref", "selector", "settle_ms", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "modifiers", "ref", "selector", "settle_ms", "tab_id", "timeout_ms"},
 		required: []string{},
 	},
 	"wheel": {
-		fields:   []string{"delta_x", "delta_y", "modifiers", "ref", "selector", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "delta_x", "delta_y", "modifiers", "ref", "selector", "tab_id", "timeout_ms"},
 		required: []string{},
 	},
 	"scroll_to": {
-		fields:   []string{"ref", "selector", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "ref", "selector", "tab_id", "timeout_ms"},
 		required: []string{},
 	},
 	"focus": {
-		fields:   []string{"ref", "selector", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "ref", "selector", "tab_id", "timeout_ms"},
 		required: []string{},
 	},
 	"blur": {
-		fields:   []string{"ref", "selector", "tab_id", "timeout_ms"},
+		fields:   []string{"expect", "ref", "selector", "tab_id", "timeout_ms"},
 		required: []string{},
 	},
 	"select": {
-		fields:   []string{"ref", "selector", "tab_id", "timeout_ms", "values"},
+		fields:   []string{"expect", "ref", "selector", "tab_id", "timeout_ms", "values"},
 		required: []string{"values"},
 	},
 	"tab_list": {
@@ -643,7 +665,15 @@ func browserCallParams(method string, input map[string]any) map[string]any {
 func observationTokensFromTextChars(value any) int {
 	chars := int(toFloat64(value))
 	if chars < 1 {
-		return 1
+		chars = 1
 	}
-	return (chars + 3) / 4
+	tokens := (chars + 3) / 4
+	// BrowserSkill rejects very small snapshots with "max_tokens is too small"
+	// instead of truncating. Keep the model's character budget as a floor, but
+	// never send a budget that cannot fit the observation header plus one row.
+	const minObservationTokens = 512
+	if tokens < minObservationTokens {
+		return minObservationTokens
+	}
+	return tokens
 }

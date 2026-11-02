@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,6 +35,13 @@ type BrowserSkillTool struct {
 	keepOpen   atomic.Bool
 	failed     atomic.Bool
 	blocked    atomic.Pointer[string]
+
+	// One agent turn reuses a target-policy DOM context until the page or tab
+	// changes. Strict sessions keep the 0.4.0 single-use contract.
+	controlPolicy string
+	contextID     string
+	observationID string
+	contextReady  bool
 }
 
 // BrowserSkillScope names the caller's browser. A shared agent runs in its
@@ -115,6 +123,7 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 				"task.",
 		}, nil
 	}
+	t.controlPolicy = browserControlPolicy(status.ProtocolVersion)
 	// Prepare once per agent turn. Ending a task cannot be undone by a later
 	// call from the same turn; a new user turn can begin a new browser task.
 	t.prepare.Do(func() { t.prepareErr = t.manager.Control(ctx, t.scope, t.session, "select") })
@@ -123,40 +132,81 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 		return &types.ToolResult{Success: false, Error: t.prepareErr.Error()}, nil
 	}
 	t.used.Store(true)
-	if browserActionNeedsCooperation(method) {
-		contextID, observationID, syncErr := t.syncCooperation(ctx)
-		if syncErr == nil {
-			params["context_id"] = contextID
-			if observationID != "" {
-				params["observation_id"] = observationID
+	targeted := browserTargetedAction(method, params)
+	needsCooperation := browserActionNeedsCooperation(method)
+	// A first navigation bootstraps shared control. Syncing before it would
+	// observe the empty tab and can race the navigation itself.
+	bootstrap := browserBootstrapAction(method) && !t.contextReady
+	if needsCooperation && !bootstrap {
+		if t.controlPolicy == "strict" || !targeted || !t.contextReady {
+			if syncErr := t.ensureCooperation(ctx); syncErr != nil {
+				t.failed.Store(true)
+				return browserToolFailure(method, syncErr), nil
 			}
 		}
-		if syncErr != nil && !browserBootstrapAction(method) {
-			t.failed.Store(true)
-			return browserToolFailure(method, syncErr), nil
+	}
+	if needsCooperation && !bootstrap {
+		if t.contextID != "" {
+			params["context_id"] = t.contextID
+		}
+		if t.controlPolicy == "target" && !targeted && t.observationID != "" {
+			params["observation_id"] = t.observationID
 		}
 	}
 	result, err := t.manager.Call(ctx, t.scope, t.session, method, params)
 	if err != nil {
+		t.invalidateContext()
 		t.failed.Store(true)
 		return browserToolFailure(method, err), nil
+	}
+	if browserActionInvalidatesContext(method) ||
+		needsCooperation && (t.controlPolicy == "strict" || !targeted) {
+		t.invalidateContext()
 	}
 	return t.interpretResult(method, result), nil
 }
 
-// syncCooperation obtains the single-use context every mutating action needs.
-// A page can change while the extension captures its snapshot; wait for the
-// shared tab to settle and retry once instead of surfacing a transient failure.
-func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, string, error) {
+// ensureCooperation obtains the context this action needs. Target DOM actions
+// reuse one context; scripts, untargeted actions and strict sessions sync per
+// action. A 0.4.0 extension is selected as strict before the first sync.
+func (t *BrowserSkillTool) ensureCooperation(ctx context.Context) error {
+	policy := t.controlPolicy
+	if policy == "" {
+		policy = "target"
+	}
+	contextID, observationID, err := t.syncCooperation(ctx, policy)
+	if err != nil && policy == "target" && controlPolicyUnsupported(err) {
+		t.controlPolicy = "strict"
+		contextID, observationID, err = t.syncCooperation(ctx, "strict")
+	}
+	if err != nil {
+		return err
+	}
+	t.contextID = contextID
+	t.observationID = observationID
+	t.contextReady = true
+	return nil
+}
+
+// syncCooperation obtains a shared-control context. A page can change while
+// the extension captures its snapshot; wait for the shared tab to settle and
+// retry once instead of surfacing a transient failure.
+func (t *BrowserSkillTool) syncCooperation(ctx context.Context, policy string) (string, string, error) {
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
-		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{"action": "sync", "control_policy": "target"})
+		result, err := t.manager.Call(ctx, t.scope, t.session, "cooperate", map[string]any{
+			"action": "sync", "control_policy": policy,
+		})
 		if err == nil {
 			var sync struct {
 				ContextID     string `json:"context_id"`
 				ObservationID string `json:"observation_id"`
+				ControlPolicy string `json:"control_policy"`
 			}
 			if json.Unmarshal(result, &sync) == nil && sync.ContextID != "" {
+				if sync.ControlPolicy != "" {
+					t.controlPolicy = sync.ControlPolicy
+				}
 				return sync.ContextID, sync.ObservationID, nil
 			}
 			err = errors.New("BrowserSkill cooperate sync returned no context")
@@ -172,6 +222,22 @@ func (t *BrowserSkillTool) syncCooperation(ctx context.Context) (string, string,
 	return "", "", lastErr
 }
 
+func controlPolicyUnsupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "control_policy") ||
+		strings.Contains(message, "unknown field") && strings.Contains(message, "target") ||
+		strings.Contains(message, "unsupported")
+}
+
+func (t *BrowserSkillTool) invalidateContext() {
+	t.contextID = ""
+	t.observationID = ""
+	t.contextReady = false
+}
+
 func cooperationSyncRetryable(err error) bool {
 	if err == nil {
 		return false
@@ -180,6 +246,53 @@ func cooperationSyncRetryable(err error) bool {
 	return strings.Contains(message, "page changed while synchronizing") ||
 		strings.Contains(message, "cooperation_sync_required") ||
 		strings.Contains(message, "sync again after it settles")
+}
+
+// browserControlPolicy uses target semantics on protocol 1.8+ and falls back
+// to strict on 0.4.0 peers. An unknown protocol keeps the current target
+// default; the sync itself falls back if the peer rejects the policy.
+func browserControlPolicy(protocol string) string {
+	if protocol == "" {
+		return "target"
+	}
+	parts := strings.Split(strings.TrimSpace(protocol), ".")
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return "target"
+	}
+	minor := 0
+	if len(parts) > 1 {
+		minor, _ = strconv.Atoi(parts[1])
+	}
+	if major > 1 || major == 1 && minor >= 8 {
+		return "target"
+	}
+	return "strict"
+}
+
+// browserTargetedAction matches the extension's TARGET_ACTIONS rule: a DOM
+// action with an explicit ref/selector, not a visual coordinate action.
+func browserTargetedAction(method string, params map[string]any) bool {
+	switch method {
+	case "click", "fill", "press", "select", "hover", "focus", "blur", "scroll_to", "wheel":
+	default:
+		return false
+	}
+	_, ref := params["ref"]
+	_, selector := params["selector"]
+	return ref || selector
+}
+
+func browserActionInvalidatesContext(method string) bool {
+	switch method {
+	case "navigate", "navigate_back", "navigate_forward", "reload",
+		"tab_create", "tab_select", "tab_close", "tab_borrow", "tab_return",
+		"emulate", "window_resize", "evaluate", "wait_ms", "wait_for_navigation",
+		"request_help":
+		return true
+	default:
+		return false
+	}
 }
 
 // browserActionNeedsCooperation reports whether the extension now requires a

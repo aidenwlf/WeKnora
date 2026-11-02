@@ -157,13 +157,23 @@ func parseBrowserSignature(line string) (string, browserSignatureParams, bool) {
 	return name, params, true
 }
 
+func TestBrowserExpectPassesThrough(t *testing.T) {
+	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
+	raw := json.RawMessage(`{"method":"click","ref":"e1","expect":[{"target":"@e1","field":"text","equals":"OK"}]}`)
+	require.NoError(t, tool.ValidateArguments(raw))
+	var input map[string]any
+	require.NoError(t, json.Unmarshal(raw, &input))
+	params := browserCallParams("click", input)
+	require.Equal(t, []any{map[string]any{"target": "@e1", "field": "text", "equals": "OK"}}, params["expect"])
+}
+
 func TestBrowserTextCapMapsOntoProtocol(t *testing.T) {
 	page := browserCallParams("observe", map[string]any{
 		"method": "observe", "keep_open": true, "max_text_chars": float64(3000), "tab_id": float64(2),
 	})
 	require.Equal(t, map[string]any{"max_tokens": 750, "tab_id": float64(2)}, page)
-	require.Equal(t, 1, browserCallParams("snapshot", map[string]any{"max_text_chars": float64(1)})["max_tokens"])
-	require.Equal(t, 2, browserCallParams("snapshot", map[string]any{"max_text_chars": float64(5)})["max_tokens"])
+	require.Equal(t, 512, browserCallParams("snapshot", map[string]any{"max_text_chars": float64(1)})["max_tokens"])
+	require.Equal(t, 512, browserCallParams("snapshot", map[string]any{"max_text_chars": float64(5)})["max_tokens"])
 	logs := browserCallParams("console", map[string]any{"max_text_chars": float64(3000), "limit": float64(20)})
 	require.Equal(t, map[string]any{"max_text_chars": float64(3000), "limit": float64(20)}, logs)
 }

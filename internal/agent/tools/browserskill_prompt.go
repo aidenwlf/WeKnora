@@ -34,15 +34,15 @@ navigate(url, tab_id?, wait_until?, timeout_ms?)
 navigate_back(tab_id?, wait_until?, timeout_ms?)
 navigate_forward(tab_id?, wait_until?, timeout_ms?)
 reload(tab_id?, hard?, wait_until?, timeout_ms?)
-click(ref | selector, button?, click_count?, modifiers?, tab_id?, timeout_ms?)
-fill(ref | selector, value, clear_before?, tab_id?, timeout_ms?)
-press(key, ref?, selector?, hold_ms?, modifiers?, tab_id?, timeout_ms?)
-hover(ref | selector, settle_ms?, modifiers?, tab_id?, timeout_ms?)
-wheel(delta_x?, delta_y?, ref?, selector?, modifiers?, tab_id?, timeout_ms?)
-scroll_to(ref | selector, tab_id?, timeout_ms?)
-focus(ref | selector, tab_id?, timeout_ms?)
-blur(ref?, selector?, tab_id?, timeout_ms?)
-select(ref | selector, values, tab_id?, timeout_ms?)
+click(ref | selector, button?, click_count?, modifiers?, tab_id?, timeout_ms?, expect?)
+fill(ref | selector, value, clear_before?, tab_id?, timeout_ms?, expect?)
+press(key, ref?, selector?, hold_ms?, modifiers?, tab_id?, timeout_ms?, expect?)
+hover(ref | selector, settle_ms?, modifiers?, tab_id?, timeout_ms?, expect?)
+wheel(delta_x?, delta_y?, ref?, selector?, modifiers?, tab_id?, timeout_ms?, expect?)
+scroll_to(ref | selector, tab_id?, timeout_ms?, expect?)
+focus(ref | selector, tab_id?, timeout_ms?, expect?)
+blur(ref?, selector?, tab_id?, timeout_ms?, expect?)
+select(ref | selector, values, tab_id?, timeout_ms?, expect?)
 tab_list(scope?)
 tab_create(url?, active?, index?)
 tab_select(tab_id)
@@ -80,6 +80,9 @@ Workflow:
 - Action acknowledgement does not prove the intended effect; observe if ambiguous. Navigation
   defaults to domcontentloaded, which does not guarantee application readiness. Inspect before
   waiting. wait_for_navigation waits for navigation, not arbitrary content.
+- Use expect for the business fact that must hold after an action, for example
+  [{"target":"@e1","field":"text","equals":"OK"}]. This compares a DOM target; it is not a
+  substitute for observing the page when the outcome is ambiguous.
 - Refresh stale refs before one retry. Inspect invisible targets and uncertain action effects
   before acting again. After two attempts without progress, change approach or report the blocker.
 

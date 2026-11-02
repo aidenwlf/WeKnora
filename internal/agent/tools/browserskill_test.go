@@ -133,10 +133,13 @@ type browserLifecycleManager struct {
 	retained   []bool
 	cleanupErr error
 	protocol   string
+	extension  string
 }
 
 func (m *browserLifecycleManager) GetStatus(context.Context, browserskill.Scope, string) (browserskill.Status, error) {
-	return browserskill.Status{Connected: true, ProtocolVersion: m.protocol}, nil
+	return browserskill.Status{
+		Connected: true, ProtocolVersion: m.protocol, ExtensionVersion: m.extension,
+	}, nil
 }
 
 func (m *browserLifecycleManager) Control(context.Context, browserskill.Scope, string, string) error {
@@ -190,7 +193,7 @@ func TestBrowserActionsUseFreshCooperationContext(t *testing.T) {
 func TestBrowserTargetContextReuseAndBootstrap(t *testing.T) {
 	ctx := context.WithValue(t.Context(), types.TenantIDContextKey, uint64(7))
 	ctx = context.WithValue(ctx, types.UserIDContextKey, "alice")
-	manager := &browserLifecycleManager{protocol: "1.8"}
+	manager := &browserLifecycleManager{protocol: "1.8", extension: "0.4.1"}
 	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
 	tool.manager = manager
 
@@ -239,19 +242,33 @@ func TestBrowserTargetContextReuseAndBootstrap(t *testing.T) {
 	require.Equal(t, []string{"cooperate", "click"}, manager.methods)
 }
 
+func TestBrowserControlPolicyRequiresTargetCapableExtension(t *testing.T) {
+	require.Equal(t, "strict", browserControlPolicy("1.8", "0.4.0"))
+	require.Equal(t, "strict", browserControlPolicy("1.7", "0.4.0"))
+	require.Equal(t, "target", browserControlPolicy("1.8", "0.4.1"))
+	require.Equal(t, "target", browserControlPolicy("1.8", "0.5.0"))
+	require.Equal(t, "strict", browserControlPolicy("1.7", "0.4.1"))
+	require.Equal(t, "target", browserControlPolicy("1.8", ""))
+}
+
 func TestBrowserStrictProtocolSyncsEveryAction(t *testing.T) {
 	ctx := context.WithValue(t.Context(), types.TenantIDContextKey, uint64(7))
 	ctx = context.WithValue(ctx, types.UserIDContextKey, "alice")
-	manager := &browserLifecycleManager{protocol: "1.7"}
+	manager := &browserLifecycleManager{protocol: "1.8", extension: "0.4.0"}
 	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
 	tool.manager = manager
 
-	for _, raw := range []string{`{"method":"click","ref":"e1"}`, `{"method":"click","ref":"e2"}`} {
+	for _, raw := range []string{
+		`{"method":"click","ref":"e1","expect":[{"target":"@e1","field":"text","equals":"OK"}]}`,
+		`{"method":"click","ref":"e2"}`,
+	} {
 		manager.methods = nil
 		result, err := tool.Execute(ctx, json.RawMessage(raw))
 		require.NoError(t, err)
 		require.True(t, result.Success)
 		require.Equal(t, []string{"cooperate", "click"}, manager.methods)
+		_, hasExpect := manager.params["expect"]
+		require.False(t, hasExpect, "0.4.0 strict peers do not accept target-only expect")
 	}
 }
 

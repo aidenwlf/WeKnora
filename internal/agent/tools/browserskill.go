@@ -123,7 +123,7 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 				"task.",
 		}, nil
 	}
-	t.controlPolicy = browserControlPolicy(status.ProtocolVersion)
+	t.controlPolicy = browserControlPolicy(status.ProtocolVersion, status.ExtensionVersion)
 	// Prepare once per agent turn. Ending a task cannot be undone by a later
 	// call from the same turn; a new user turn can begin a new browser task.
 	t.prepare.Do(func() { t.prepareErr = t.manager.Control(ctx, t.scope, t.session, "select") })
@@ -152,6 +152,10 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 		if t.controlPolicy == "target" && !targeted && t.observationID != "" {
 			params["observation_id"] = t.observationID
 		}
+	}
+	if t.controlPolicy == "strict" {
+		// expect is a target-policy assertion; a 0.4.0 extension rejects it.
+		delete(params, "expect")
 	}
 	result, err := t.manager.Call(ctx, t.scope, t.session, method, params)
 	if err != nil {
@@ -248,10 +252,14 @@ func cooperationSyncRetryable(err error) bool {
 		strings.Contains(message, "sync again after it settles")
 }
 
-// browserControlPolicy uses target semantics on protocol 1.8+ and falls back
-// to strict on 0.4.0 peers. An unknown protocol keeps the current target
-// default; the sync itself falls back if the peer rejects the policy.
-func browserControlPolicy(protocol string) string {
+// browserControlPolicy uses target semantics only when both the extension and
+// the protocol support it. A 0.4.1 daemon with a 0.4.0 extension reports 1.8
+// but still enforces strict single-use control, so gate on both.
+func browserControlPolicy(protocol, extension string) string {
+	trimmedExtension := strings.TrimPrefix(strings.TrimSpace(extension), "v")
+	if trimmedExtension != "" && !semverAtLeast(trimmedExtension, 0, 4, 1) {
+		return "strict"
+	}
 	if protocol == "" {
 		return "target"
 	}
@@ -268,6 +276,32 @@ func browserControlPolicy(protocol string) string {
 		return "target"
 	}
 	return "strict"
+}
+
+func semverAtLeast(version string, wantMajor, wantMinor, wantPatch int) bool {
+	parts := strings.Split(version, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return false
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return false
+	}
+	patch := 0
+	if len(parts) > 2 {
+		patch, _ = strconv.Atoi(strings.SplitN(parts[2], "-", 2)[0])
+	}
+	if major != wantMajor {
+		return major > wantMajor
+	}
+	if minor != wantMinor {
+		return minor > wantMinor
+	}
+	return patch >= wantPatch
 }
 
 // browserTargetedAction matches the extension's TARGET_ACTIONS rule: a DOM

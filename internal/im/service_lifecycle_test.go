@@ -85,6 +85,7 @@ func newLifecycleTestDB(t *testing.T) *gorm.DB {
 		knowledge_base_id TEXT DEFAULT '',
 		bot_identity TEXT NOT NULL DEFAULT '',
 		session_mode TEXT NOT NULL DEFAULT 'user',
+		bound_user_id TEXT NOT NULL DEFAULT '',
 		credentials TEXT NOT NULL DEFAULT '{}',
 		created_at DATETIME,
 		updated_at DATETIME,

@@ -757,6 +757,7 @@
     :message-id="messageIdForArtifacts"
     :artifacts="liveArtifacts"
     :preview-index="artifactPreviewIndex"
+    :allow-add-to-knowledge="!embeddedMode"
   />
   <AddArtifactToKnowledgeDialog
     v-model:visible="addToKbVisible"
@@ -1368,7 +1369,7 @@ const artifactRefLabels = computed(() => ({
   previewHint: t('agent.artifactDrawer.inlinePreviewHint'),
   missingHint: t('agent.artifactDrawer.inlineMissing'),
   deletedHint: t('agent.artifactDrawer.inlineDeleted'),
-  addToKnowledge: t('agent.artifactDrawer.addToKnowledge'),
+  addToKnowledge: props.embeddedMode ? '' : t('agent.artifactDrawer.addToKnowledge'),
 }));
 
 const {

@@ -42,6 +42,7 @@ var (
 	_ im.Adapter        = (*Adapter)(nil)
 	_ im.StreamSender   = (*Adapter)(nil)
 	_ im.FileDownloader = (*Adapter)(nil)
+	_ im.FileSender     = (*Adapter)(nil)
 )
 
 // Adapter implements im.Adapter for DingTalk.
@@ -54,6 +55,12 @@ type Adapter struct {
 	tokenMu    sync.RWMutex
 	token      string
 	tokenExpAt time.Time
+
+	// legacyToken is the oapi.dingtalk.com credential used by the media
+	// upload endpoint. It is separate from the api.dingtalk.com token above.
+	legacyTokenMu    sync.Mutex
+	legacyToken      string
+	legacyTokenExpAt time.Time
 }
 
 // NewWebhookAdapter creates a DingTalk adapter for HTTP callback mode.

@@ -338,6 +338,11 @@ type Service struct {
 	storageResolver interfaces.StorageBackendResolver
 	resourceCatalog interfaces.ResourceCatalog
 
+	// artifactCollector drains sandbox output after an agent turn so files
+	// produced in an IM conversation can be persisted and sent back natively.
+	// Nil when the deployment's sandbox backend has no file inspection.
+	artifactCollector ArtifactCollector
+
 	// cmdRegistry holds all registered slash-commands.
 	cmdRegistry *CommandRegistry
 
@@ -862,6 +867,9 @@ func applyIMCompleteDataToMessage(msg *types.Message, data event.AgentCompleteDa
 	if steps := sanitizeIMAgentSteps(data.AgentSteps); len(steps) > 0 {
 		msg.AgentSteps = steps
 	}
+	if artifacts, ok := data.Artifacts.(types.MessageArtifacts); ok && len(artifacts) > 0 {
+		msg.Artifacts = artifacts
+	}
 }
 
 // waitForIMAgentComplete blocks until EventAgentComplete, ctx cancellation, or timeout.
@@ -964,6 +972,7 @@ func NewService(
 	resourceCatalog interfaces.ResourceCatalog,
 	kbShareService interfaces.KBShareService,
 	memberService interfaces.TenantMemberService,
+	artifactCollector ArtifactCollector,
 ) *Service {
 	// Resolve IM configuration with defaults.
 	workers, maxQueue, maxPerUser, globalMaxWorkers, rlWindow, rlMax := resolveIMConfig(appCfg)
@@ -978,30 +987,31 @@ func NewService(
 
 	instanceID := uuid.New().String()
 	s := &Service{
-		db:               db,
-		sessionService:   sessionService,
-		messageService:   messageService,
-		tenantService:    tenantService,
-		agentService:     agentService,
-		knowledgeService: knowledgeService,
-		kbService:        kbService,
-		streamManager:    streamManager,
-		defaultFileSvc:   defaultFileSvc,
-		documentReader:   documentReader,
-		storageResolver:  storageResolver,
-		resourceCatalog:  resourceCatalog,
-		kbShareService:   kbShareService,
-		memberService:    memberService,
-		oauthManager:     oauthManager,
-		cmdRegistry:      registry,
-		channels:         make(map[string]*channelState),
-		leaderRetries:    make(map[string]*leaderRetryState),
-		adapterFactories: make(map[string]AdapterFactory),
-		rateLimiter:      ratelimit.New(redisClient, RedisKeyRateLimit, rlWindow, instanceID),
-		rateLimitMax:     rlMax,
-		redis:            redisClient,
-		instanceID:       instanceID,
-		stopCh:           make(chan struct{}),
+		db:                db,
+		sessionService:    sessionService,
+		messageService:    messageService,
+		tenantService:     tenantService,
+		agentService:      agentService,
+		knowledgeService:  knowledgeService,
+		kbService:         kbService,
+		streamManager:     streamManager,
+		defaultFileSvc:    defaultFileSvc,
+		documentReader:    documentReader,
+		storageResolver:   storageResolver,
+		resourceCatalog:   resourceCatalog,
+		kbShareService:    kbShareService,
+		memberService:     memberService,
+		artifactCollector: artifactCollector,
+		oauthManager:      oauthManager,
+		cmdRegistry:       registry,
+		channels:          make(map[string]*channelState),
+		leaderRetries:     make(map[string]*leaderRetryState),
+		adapterFactories:  make(map[string]AdapterFactory),
+		rateLimiter:       ratelimit.New(redisClient, RedisKeyRateLimit, rlWindow, instanceID),
+		rateLimitMax:      rlMax,
+		redis:             redisClient,
+		instanceID:        instanceID,
+		stopCh:            make(chan struct{}),
 	}
 
 	// Initialize the QA worker pool and bounded queue.
@@ -2106,7 +2116,7 @@ func (s *Service) executeQARequest(req *qaRequest) {
 	}
 
 	// Non-streaming fallback: collect full answer then send.
-	answer, err := s.runQA(ctx, req.session, req.msg.Content, req.agent, kbIDs, attachments, imageURLs, req.userKey, req.msg.Quote)
+	answer, assistantMsg, err := s.runQA(ctx, req.session, req.msg.Content, req.agent, kbIDs, attachments, imageURLs, req.userKey, req.msg.Quote)
 	if err != nil {
 		logger.Errorf(ctx, "[IM] QA failed: %v, sending fallback reply", err)
 		answer = imQAFailureReply(err)
@@ -2122,6 +2132,7 @@ func (s *Service) executeQARequest(req *qaRequest) {
 		logger.Errorf(ctx, "[IM] Send reply failed: %v", err)
 		return
 	}
+	s.sendArtifacts(outCtx, req.msg, req.adapter, req.tenant, artifactsOf(assistantMsg))
 
 	logger.Infof(ctx, "[IM] Reply sent: channel=%s platform=%s user=%s answer_len=%d",
 		req.channelID, req.msg.Platform, req.msg.UserID, len(answer))
@@ -2152,7 +2163,7 @@ func (s *Service) handleMessageFullOutput(
 		)
 	}
 
-	answer, qaErr := s.runQA(
+	answer, assistantMsg, qaErr := s.runQA(
 		ctx, session, msg.Content, customAgent, kbIDs, attachments, imageURLs, userKey, msg.Quote,
 	)
 	if qaErr != nil {
@@ -2186,6 +2197,7 @@ func (s *Service) handleMessageFullOutput(
 	}
 
 	if finalizeErr == nil || fallbackErr == nil {
+		s.sendArtifacts(outCtx, msg, adapter, tenant, artifactsOf(assistantMsg))
 		logger.Infof(
 			ctx, "[IM] Full-output reply sent: platform=%s user=%s answer_len=%d",
 			msg.Platform, msg.UserID, len(answer),
@@ -2749,7 +2761,7 @@ func (s *Service) handleMessageStream(ctx context.Context, msg *IncomingMessage,
 		return nil
 	})
 
-	eventBus.On(event.EventAgentComplete, func(_ context.Context, evt event.Event) error {
+	eventBus.On(event.EventAgentComplete, func(callbackCtx context.Context, evt event.Event) error {
 		data, ok := evt.Data.(event.AgentCompleteData)
 		if !ok {
 			return nil
@@ -2760,6 +2772,13 @@ func (s *Service) handleMessageStream(ctx context.Context, msg *IncomingMessage,
 		applyIMCompleteDataToMessage(assistantMsg, data)
 		mergeIMAgentAnswerBuffers(&answerBuilder, &answerOuter, &agentLiveAnswer, data.FinalAnswer)
 		bufMu.Unlock()
+		if useAgent {
+			tenantID := session.TenantID
+			if tenant != nil {
+				tenantID = tenant.ID
+			}
+			s.collectIMArtifacts(callbackCtx, session.ID, tenantID, assistantMsg)
+		}
 		closeComplete()
 		// Execute can emit EventError after Complete. The AgentQA return path
 		// closes done after those errors have been collected for finalization.
@@ -3049,28 +3068,33 @@ loop:
 	if finalizeErr != nil && fallbackErr != nil {
 		return errors.Join(finalizeErr, endErr, fallbackErr)
 	}
+	s.sendArtifacts(outCtx, msg, adapter, tenant, artifactsOf(assistantMsg))
 	logger.Infof(ctx, "[IM] Stream reply sent: platform=%s user=%s answer_len=%d", msg.Platform, msg.UserID, len(answer))
 	return endErr
 }
 
 // fallbackNonStream is used when streaming initialization fails.
 func (s *Service) fallbackNonStream(ctx context.Context, msg *IncomingMessage, session *types.Session, customAgent *types.CustomAgent, kbIDs []string, attachments types.MessageAttachments, imageURLs []string, adapter Adapter, userKey string, tenant *types.Tenant) error {
-	answer, err := s.runQA(ctx, session, msg.Content, customAgent, kbIDs, attachments, imageURLs, userKey, msg.Quote)
+	answer, assistantMsg, err := s.runQA(ctx, session, msg.Content, customAgent, kbIDs, attachments, imageURLs, userKey, msg.Quote)
 	if err != nil {
 		logger.Errorf(ctx, "[IM] QA fallback failed: %v", err)
 		answer = imQAFailureReply(err)
 	}
 
 	outCtx := imOutboundContext(ctx)
-	return adapter.SendReply(outCtx, msg, &ReplyMessage{
+	if err := adapter.SendReply(outCtx, msg, &ReplyMessage{
 		Content: formatIMOutboundAnswerOrFallback(outCtx, answer,
 			s.newOutboundFileServiceResolver(tenant, customAgent, kbIDs)),
 		IsFinal: true,
-	})
+	}); err != nil {
+		return err
+	}
+	s.sendArtifacts(outCtx, msg, adapter, tenant, artifactsOf(assistantMsg))
+	return nil
 }
 
 // runQA executes the WeKnora QA pipeline and returns the full answer text.
-func (s *Service) runQA(ctx context.Context, session *types.Session, query string, customAgent *types.CustomAgent, kbIDs []string, attachments types.MessageAttachments, imageURLs []string, userKey string, quote *QuotedMessage) (string, error) {
+func (s *Service) runQA(ctx context.Context, session *types.Session, query string, customAgent *types.CustomAgent, kbIDs []string, attachments types.MessageAttachments, imageURLs []string, userKey string, quote *QuotedMessage) (string, *types.Message, error) {
 	// Cancellable context (no hard deadline): each agent round has its own
 	// LLMCallTimeout. The context can still be cancelled by /stop.
 	ctx, cancel := context.WithCancel(ctx)
@@ -3144,13 +3168,13 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 	// Create user message so it appears in conversation history
 	userMsg, err := s.messageService.CreateMessage(ctx, createIMUserMessagePayload(session.ID, query, requestID, attachments))
 	if err != nil {
-		return "", fmt.Errorf("create user message: %w", err)
+		return "", nil, fmt.Errorf("create user message: %w", err)
 	}
 
 	// Create a placeholder assistant message
 	assistantMsg, err := s.messageService.CreateMessage(ctx, createIMAssistantMessagePayload(session.ID, requestID))
 	if err != nil {
-		return "", fmt.Errorf("create assistant message: %w", err)
+		return "", nil, fmt.Errorf("create assistant message: %w", err)
 	}
 
 	eventBus.On(event.EventAgentReferences, func(ctx context.Context, evt event.Event) error {
@@ -3177,6 +3201,9 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 			answerBuilder.WriteString(data.FinalAnswer)
 		}
 		answerMu.Unlock()
+		if useAgent {
+			s.collectIMArtifacts(ctx, session.ID, session.TenantID, assistantMsg)
+		}
 		closeComplete()
 		return nil
 	})
@@ -3236,7 +3263,7 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 		if updateErr := s.messageService.UpdateMessage(context.WithoutCancel(ctx), assistantMsg); updateErr != nil {
 			logger.Warnf(ctx, "[IM] Failed to update cancelled assistant message: %v", updateErr)
 		}
-		return "", fmt.Errorf("QA cancelled: %w", ctx.Err())
+		return "", nil, fmt.Errorf("QA cancelled: %w", ctx.Err())
 	}
 
 	answerMu.Lock()
@@ -3246,7 +3273,7 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 	answerMu.Unlock()
 
 	if answer == "" && qaError != nil {
-		return "", qaError
+		return "", nil, qaError
 	}
 	if answer == "" {
 		answer = imNoAnswerFallback
@@ -3263,7 +3290,7 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 	}
 
 	// Return raw answer — callers apply cleanIMContent with the appropriate FileService.
-	return answer, nil
+	return answer, assistantMsg, nil
 }
 
 // ── CRUD operations for IM channels ──

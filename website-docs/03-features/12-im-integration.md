@@ -57,6 +57,18 @@ IM 集成将智能体接入企业微信、飞书、钉钉、Slack、Telegram 等
 
 `knowledge_base_id` 只决定是否将附件额外保存到知识库，必须是渠道所在空间的知识库（受限 API key 还要求在其知识库白名单内），否则创建或更新渠道时返回 400。配置后，保存任务在后台执行，不影响当前 QA 回复，也不会额外发送“已入库”或“解析完成”消息。解析文本最多保留前 500 行且不超过 32 KiB，触及任一限制时模型会得到通用截断提示。附件无法读取、平台不支持下载或文件超过 32 MiB 时，机器人会提示用户改用文字描述或重新发送。
 
+### Agent 生成文件的回传
+
+Agent 在沙箱中生成的文件会先由 `ArtifactCollector` 落盘，再由 IM 服务通过 `FileSender` 作为平台原生文件消息发回当前会话；正文回答先发送，文件随后逐条发送，单个文件失败不影响其余文件和文字回复。
+
+| 平台 | 出站文件实现 | 上限 |
+|------|--------------|------|
+| 企业微信（WebSocket / Webhook） | 临时素材上传 + `aibot_send_msg` / `appchat/send` / `message/send` | 20 MiB |
+| 钉钉（Stream） | `media/upload` + sessionWebhook 或 OpenAPI `sampleFile` / `sampleImageMsg` | 20 MiB |
+| 微信（iLink 个人号） | `getuploadurl` + AES-128-ECB CDN 上传 + `file_item` | 20 MiB |
+
+超过上限的文件只保留 Web 产物入口，不发起 IM 上传。适配器未实现 `FileSender`（目前为飞书/Lark、Slack、Telegram、Mattermost、QQ、云之家）时，回答中的文件引用仍按文本发送。
+
 ## 回复中的图片外链（resource:// 改写）
 
 答案里引用知识库图片时，正文中是 `resource://` 或 `local://` / `minio://` 等内部引用，IM 客户端无法直接拉取。`rewriteStorageURLs`（`internal/im/service.go`）在发送前把它们换成可访问的 http(s) URL：
@@ -245,6 +257,7 @@ type Adapter interface {
 
 - `StreamSender` —— 流式回复（`StartStream` → `UpdateStreamContent`（整段替换语义）→ `FinalizeStream`（最终只保留答案，剥离思考/工具过程）→ `EndStream`）。实现者：Feishu/Lark（流式卡片）、DingTalk（AI 卡片，需 `card_template_id`）、Slack、Telegram（消息编辑）、Mattermost、WeCom WebSocket 模式。
 - `FileDownloader` —— 从平台下载用户发送的文件/图片（`DownloadFile`）。实现者：除 QQ 机器人外的全部平台（WeCom 两种模式均支持）。
+- `FileSender` —— 把 Agent 生成的文件作为原生文件消息发回当前会话（`SendFile`）。实现者：WeCom 两种模式、钉钉、微信（iLink）。
 
 统一消息模型 `IncomingMessage` 携带 `Platform`、`MessageType`（`text`/`file`/`image`）、`UserID`、`ChatID`、`ChatType`（`direct`/`group`）、`Content`、`MessageID`（用于去重）、`FileKey`/`FileName`/`FileSize`、`ThreadID`（话题/线程 ID）、`Quote`（引用消息）等字段。
 

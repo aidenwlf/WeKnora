@@ -171,6 +171,25 @@ type FullOutputProgressSender interface {
 	SupportsFullOutputProgress() bool
 }
 
+// OutgoingFile is a file produced by the agent and delivered back through the
+// IM channel. Data is the complete payload; platform adapters enforce their own
+// size and type limits.
+type OutgoingFile struct {
+	FileName    string
+	ContentType string
+	Data        []byte
+}
+
+// FileSender is an optional interface that adapters can implement to deliver
+// agent-generated artifacts as native file messages. It is the outbound
+// counterpart of FileDownloader: an adapter that cannot send files simply does
+// not implement it, and the IM service falls back to the text answer.
+type FileSender interface {
+	// SendFile uploads data to the platform and sends it as a standalone file
+	// message in the conversation the incoming message belongs to.
+	SendFile(ctx context.Context, incoming *IncomingMessage, file *OutgoingFile) error
+}
+
 // FileDownloader is an optional interface that adapters can implement to support
 // downloading file attachments from the IM platform. It allows file/image
 // messages to be supplied to QA as attachments; when a knowledge_base_id is

@@ -417,6 +417,14 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// each agent turn. The factory returns nil when the sandbox backend does
 	// not support per-session file inspection; downstream code guards on nil.
 	must(container.Provide(service.NewArtifactCollectorFromSandboxManager))
+	// The IM service consumes the collector through a narrow interface so the
+	// IM package does not import the application service layer.
+	must(container.Provide(func(collector *service.ArtifactCollector) imPkg.ArtifactCollector {
+		if collector == nil {
+			return nil
+		}
+		return collector
+	}))
 
 	// WorkspaceCheckpointer commits the sandbox /workspace after each agent
 	// turn so session fork can roll a forked sandbox back to a given message.

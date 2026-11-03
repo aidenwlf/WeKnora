@@ -145,6 +145,11 @@ type LongConnClient struct {
 	streamBufsMu sync.Mutex
 	streamBufs   map[string]*strings.Builder
 
+	// pending correlates upload/active-send requests with the frames the
+	// server returns for them. Callback frames are not registered here.
+	pendingMu sync.Mutex
+	pending   map[string]chan wsFrame
+
 	// botDisplayName caches the bot's display name for @mention stripping.
 	// Set from credentials "bot_name", or learned from double-space messages.
 	botDisplayName atomic.Value // string
@@ -167,6 +172,7 @@ func NewLongConnClient(botID, secret, wsEndpoint, botName string, handler Messag
 		endpoint:         wsEndpoint,
 		extraAllowedHost: extraHostFromEndpoint(wsEndpoint, defaultWSEndpoint),
 		handler:          handler,
+		pending:          make(map[string]chan wsFrame),
 	}
 	if botName != "" {
 		c.botDisplayName.Store(botName)
@@ -419,6 +425,10 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 		var frame wsFrame
 		if err := json.Unmarshal(message, &frame); err != nil {
 			logger.Warnf(ctx, "[WeCom] Failed to unmarshal frame: %v", err)
+			continue
+		}
+
+		if c.resolvePending(frame) {
 			continue
 		}
 

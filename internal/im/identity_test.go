@@ -77,3 +77,67 @@ func TestWithIMIdentityAppliesChannelLocaleAcrossTransports(t *testing.T) {
 		})
 	}
 }
+
+func TestWithIMIdentityRunAsBoundUser(t *testing.T) {
+	const tenantID uint64 = 42
+	channel := &IMChannel{ID: "channel-1", TenantID: tenantID, Locale: "zh-CN"}
+	msg := &IncomingMessage{Platform: PlatformWeChat, UserID: "open-id-1"}
+
+	ctx := withIMIdentityRunAs(context.Background(), channel, msg, &imRunAs{
+		UserID: "user-9",
+		Role:   types.TenantRoleAdmin,
+	})
+
+	if got, _ := types.TenantIDFromContext(ctx); got != tenantID {
+		t.Fatalf("TenantID = %d, want %d", got, tenantID)
+	}
+	if got, _ := types.UserIDFromContext(ctx); got != "user-9" {
+		t.Fatalf("UserID = %q, want %q", got, "user-9")
+	}
+	if got := types.TenantRoleFromContext(ctx); got != types.TenantRoleAdmin {
+		t.Fatalf("TenantRole = %v, want %v", got, types.TenantRoleAdmin)
+	}
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok {
+		t.Fatal("Principal missing")
+	}
+	if principal.Type != types.PrincipalWebUser || principal.ID != "user-9" {
+		t.Fatalf("Principal = %#v, want web_user:user-9", principal)
+	}
+	if want := types.IMActingVia("channel-1"); principal.ActingVia != want {
+		t.Fatalf("ActingVia = %q, want %q", principal.ActingVia, want)
+	}
+	if got := types.PrincipalAuthSourceFromContext(ctx); got != types.AuthSourceIM {
+		t.Fatalf("PrincipalAuthSource = %q, want %q", got, types.AuthSourceIM)
+	}
+	if !types.IsMCPOAuthNonInteractive(ctx) {
+		t.Fatal("bound IM runtime must still mark MCP OAuth non-interactive")
+	}
+	if got, _ := types.LanguageFromContext(ctx); got != "zh-CN" {
+		t.Fatalf("Language = %q, want zh-CN", got)
+	}
+}
+
+func TestIMSessionOwnerID(t *testing.T) {
+	channel := &IMChannel{ID: "channel-1", TenantID: 42}
+	msg := &IncomingMessage{Platform: PlatformWeChat, UserID: "open-id-1"}
+
+	bound := withIMIdentityRunAs(context.Background(), channel, msg, &imRunAs{
+		UserID: "user-9",
+		Role:   types.TenantRoleContributor,
+	})
+	if got := imSessionOwnerID(bound); got != "user-9" {
+		t.Fatalf("imSessionOwnerID(bound) = %q, want user-9", got)
+	}
+
+	legacy := withIMIdentity(context.Background(), channel, msg)
+	if got := imSessionOwnerID(legacy); got != "" {
+		t.Fatalf("imSessionOwnerID(legacy) = %q, want empty tenant-level owner", got)
+	}
+
+	web := context.WithValue(context.Background(), types.UserIDContextKey, "user-9")
+	web = types.WithPrincipal(web, types.Principal{Type: types.PrincipalWebUser, ID: "user-9"})
+	if got := imSessionOwnerID(web); got != "" {
+		t.Fatalf("imSessionOwnerID(web chat) = %q, want empty", got)
+	}
+}

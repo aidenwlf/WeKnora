@@ -59,3 +59,23 @@ func TestCreateIMChannelRejectsUnsupportedLocale(t *testing.T) {
 		t.Fatalf("body = %s, want locale validation error", recorder.Body.String())
 	}
 }
+
+func TestCallerWebUserID(t *testing.T) {
+	if got := callerWebUserID(context.Background()); got != "" {
+		t.Fatalf("callerWebUserID(empty) = %q, want empty", got)
+	}
+
+	ctx := types.WithPrincipal(context.Background(), types.Principal{
+		Type: types.PrincipalAPITenant, ID: "1",
+	})
+	if got := callerWebUserID(ctx); got != "" {
+		t.Fatalf("callerWebUserID(api key) = %q, want empty", got)
+	}
+
+	ctx = types.WithPrincipal(context.Background(), types.Principal{
+		Type: types.PrincipalWebUser, ID: " user-9 ",
+	})
+	if got := callerWebUserID(ctx); got != "user-9" {
+		t.Fatalf("callerWebUserID(web user) = %q, want user-9", got)
+	}
+}

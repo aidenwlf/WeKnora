@@ -521,3 +521,42 @@ type testListSessionsIMChannelSession struct {
 }
 
 func (testListSessionsIMChannelSession) TableName() string { return "im_channel_sessions" }
+
+func TestGetSessionAllowsBoundIMRuntimeToReadItsOwnSession(t *testing.T) {
+	svc, db := newTestSessionService(t)
+	require.NoError(t, db.AutoMigrate(&testListSessionsIMChannelSession{}))
+
+	// A channel bound to the workspace owner creates sessions owned by that
+	// user; the IM runtime must still be able to read them even when the
+	// binding user is a non-admin whose console reads of channel rows are
+	// blocked.
+	imSession := &types.Session{TenantID: 1, UserID: "user-9", Title: "wechat chat"}
+	require.NoError(t, db.Create(imSession).Error)
+	require.NoError(t, db.Create(&testListSessionsIMChannelSession{
+		SessionID: imSession.ID,
+		Platform:  "wechat",
+	}).Error)
+
+	ctx := testSessionScopeContext(1, "user-9")
+	ctx = context.WithValue(ctx, types.TenantRoleContextKey, types.TenantRoleContributor)
+	ctx = types.WithPrincipal(ctx, types.Principal{
+		Type:      types.PrincipalWebUser,
+		ID:        "user-9",
+		ActingVia: types.IMActingVia("channel-1"),
+	})
+
+	got, err := svc.GetSession(ctx, imSession.ID)
+	require.NoError(t, err)
+	require.Equal(t, imSession.ID, got.ID)
+
+	// A different web user (no IM provenance) is still blocked from the
+	// channel-managed row even when they can guess its ID.
+	otherCtx := testSessionScopeContext(1, "user-9")
+	otherCtx = context.WithValue(otherCtx, types.TenantRoleContextKey, types.TenantRoleContributor)
+	otherCtx = types.WithPrincipal(otherCtx, types.Principal{
+		Type: types.PrincipalWebUser,
+		ID:   "user-9",
+	})
+	_, err = svc.GetSession(otherCtx, imSession.ID)
+	require.ErrorIs(t, err, apperrors.ErrSessionNotFound)
+}

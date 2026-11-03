@@ -38,6 +38,8 @@ API key：`manage_channels`/full。IM 渠道携带外部 bot 凭证：列表 Vie
 
 响应：200 `{"data":{IMChannel}}`；同渠道 bot 已存在返回 409。
 
+创建者（当前登录用户）自动成为渠道的**绑定用户**（`bound_user_id`）：该渠道的消息以绑定用户的 TenantRole 与 MCP OAuth token 运行。API Key 调用不绑定用户。
+
 ```bash
 curl -X POST $BASE/api/v1/agents/agent-1/im-channels -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"platform":"feishu","name":"飞书客服","locale":"en-US"}'
@@ -65,7 +67,7 @@ curl $BASE/api/v1/im-channels -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/im-channels/:id
 
-用途：更新渠道（局部更新：`name/mode/output_mode/locale/session_mode/knowledge_base_id/credentials/enabled/agent_id` 均可选；`knowledge_base_id` 传空字符串解除关联，`locale` 传空字符串恢复默认语言）。权限：Admin+。
+用途：更新渠道（局部更新：`name/mode/output_mode/locale/session_mode/knowledge_base_id/credentials/enabled/agent_id/bound_user_id` 均可选；`knowledge_base_id` 传空字符串解除关联，`locale` 传空字符串恢复默认语言；`bound_user_id` 传空字符串清除绑定、回落到旧版逐 IM 用户身份）。权限：Admin+。`bound_user_id` 必须是本空间的有效成员，否则 400。
 
 响应：200 `{"data":{IMChannel}}`
 

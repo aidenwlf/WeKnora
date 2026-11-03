@@ -18,6 +18,19 @@ const (
 	PrincipalMCPEndpoint     = "mcp_endpoint"
 )
 
+// IMActingVia names the IM channel a bound-user runtime acts for. IM callbacks
+// have no live WeKnora session, so the channel executes as the user who bound
+// it; ActingVia records that provenance without changing who is authorized.
+func IMActingVia(channelID string) string {
+	return "im:" + strings.TrimSpace(channelID)
+}
+
+// IsIMActingVia reports whether a principal is an IM channel runtime acting as
+// the user who bound it.
+func IsIMActingVia(v string) bool {
+	return strings.HasPrefix(strings.TrimSpace(v), "im:")
+}
+
 // EmbedVisitorHeader is sent by the embed widget to identify a browser visitor
 // across chat sessions within the same channel.
 const EmbedVisitorHeader = "X-Embed-Visitor"

@@ -169,6 +169,12 @@ func OperationIdentityFromContext(ctx context.Context) (operations.Identity, boo
 	if !ok || principal.Type != types.PrincipalWebUser {
 		return operations.Identity{}, false
 	}
+	// Delegated runs (an IM channel acting for its bound user, automations)
+	// have no live web console: mutating operations need an interactive
+	// approver, so keep them withheld from those runs.
+	if types.ActingViaFromContext(ctx) != "" {
+		return operations.Identity{}, false
+	}
 	if _, scoped := types.TenantAPIKeyScopeFromContext(ctx); scoped {
 		return operations.Identity{}, false
 	}

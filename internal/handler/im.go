@@ -95,6 +95,7 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 		OutputMode:  req.OutputMode,
 		Locale:      locale,
 		SessionMode: req.SessionMode,
+		BoundUserID: callerWebUserID(c.Request.Context()),
 		Credentials: req.Credentials,
 		Enabled:     true,
 	}
@@ -231,6 +232,9 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 		Credentials     types.JSON `json:"credentials"`
 		Enabled         *bool      `json:"enabled"`
 		AgentID         *string    `json:"agent_id"`
+		// BoundUserID rebinds the WeKnora user whose permissions the channel
+		// runs as. Omitted keeps the current binding; an empty string clears it.
+		BoundUserID *string `json:"bound_user_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -280,6 +284,16 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 			}
 		}
 	}
+	if req.BoundUserID != nil {
+		if err := h.imService.SetChannelBoundUser(c.Request.Context(), channel, *req.BoundUserID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	} else if channel.BoundUserID == "" {
+		// Legacy channel first saved after this feature ships: record the
+		// admin who configured it as the binding user.
+		channel.BoundUserID = callerWebUserID(c.Request.Context())
+	}
 
 	if err := h.imService.UpdateChannel(channel); err != nil {
 		logger.Errorf(c.Request.Context(), "[IM] Update channel failed: %v", err)
@@ -292,6 +306,17 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": channel})
+}
+
+// callerWebUserID returns the authenticated WeKnora user for channel-binding
+// writes. Machine principals (tenant API keys) bind no user: they have no
+// personal MCP OAuth tokens or tenant role to delegate.
+func callerWebUserID(ctx context.Context) string {
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok || principal.Type != types.PrincipalWebUser {
+		return ""
+	}
+	return strings.TrimSpace(principal.ID)
 }
 
 func normalizeIMLocale(locale string) (string, error) {

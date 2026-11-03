@@ -315,9 +315,15 @@ type Service struct {
 	kbService      interfaces.KnowledgeBaseService
 	kbShareService interfaces.KBShareService
 
-	// oauthManager builds MCP OAuth authorization URLs so IM users can authorize
-	// OAuth-enabled MCP services out-of-band (IM cannot resolve the in-conversation
-	// prompt). May be nil, in which case a generic console hint is shown instead.
+	// memberService resolves the tenant role of the user who bound a channel.
+	// When set (and the channel has a bound user), IM turns run as that user;
+	// otherwise the runtime keeps the legacy synthetic identity.
+	memberService imMembershipLookup
+
+	// oauthManager builds MCP OAuth authorization URLs so an IM channel's bound
+	// user can authorize OAuth-enabled MCP services out-of-band (IM cannot
+	// resolve the in-conversation prompt). May be nil, in which case a generic
+	// console hint is shown instead.
 	oauthManager *mcppkg.OAuthManager
 
 	// streamManager writes/reads QA events for distributed stop detection,
@@ -426,37 +432,118 @@ func formatQuotedContext(quote *QuotedMessage) string {
 	return label + "\n<quoted_message>\n" + content + "\n</quoted_message>"
 }
 
-// withIMIdentity injects a synthetic caller identity into the context for IM
-// callbacks. IM platforms verify their own signatures and bypass the auth
-// middleware, so the downstream QA pipeline would otherwise see an empty
-// UserID/TenantRole. Mirroring the API-key path's "system-<tenantID>" synthetic
-// user (recognised by types.IsSyntheticUserID) lets Organization-shared
-// knowledge bases be merged and resolved correctly, since the shared-KB code
-// gates on a non-empty UserID. Viewer is the least privilege sufficient to
-// retrieve shared KBs. The channel locale replaces any HTTP middleware value
-// because webhook Accept-Language belongs to the IM platform, not the writer;
-// channels without an explicit locale use the deployment default.
+// imRunAs is the WeKnora identity an IM channel executes as when the channel
+// carries a bound user. The user is the person who bound the channel; their
+// tenant role and MCP OAuth tokens are reused for every message on the bot.
+type imRunAs struct {
+	UserID string
+	Role   types.TenantRole
+}
+
+// imMembershipLookup is the slice of interfaces.TenantMemberService the IM
+// runtime needs to validate a channel's bound user. Kept narrow so tests can
+// supply a stub without implementing the whole service.
+type imMembershipLookup interface {
+	GetMembership(ctx context.Context, userID string, tenantID uint64) (*types.TenantMember, error)
+}
+
+// resolveChannelRunAs returns the bound-user identity for a channel, or nil
+// when the channel is legacy (no bound user) or the binding is no longer
+// valid. A missing/suspended membership fails closed to the legacy synthetic
+// identity instead of executing with stale privileges.
+func (s *Service) resolveChannelRunAs(ctx context.Context, channel *IMChannel) *imRunAs {
+	if channel == nil || s.memberService == nil {
+		return nil
+	}
+	userID := strings.TrimSpace(channel.BoundUserID)
+	if userID == "" {
+		return nil
+	}
+	member, err := s.memberService.GetMembership(ctx, userID, channel.TenantID)
+	if err != nil {
+		logger.Warnf(ctx, "[IM] Bound user %s membership lookup failed for channel %s: %v",
+			userID, channel.ID, err)
+		return nil
+	}
+	if member == nil || !member.Role.IsValid() {
+		logger.Warnf(ctx, "[IM] Bound user %s is not an active member of workspace %d; channel %s falls back to the legacy IM identity",
+			userID, channel.TenantID, channel.ID)
+		return nil
+	}
+	logger.Infof(ctx, "[IM] Channel %s runs as bound user %s (role %s)",
+		channel.ID, userID, member.Role)
+	return &imRunAs{UserID: userID, Role: member.Role}
+}
+
+// withIMIdentity injects a caller identity into the context for IM callbacks.
+// IM platforms verify their own signatures and bypass the auth middleware, so
+// the downstream QA pipeline would otherwise see an empty UserID/TenantRole.
+//
+// When runAs is set, every turn executes as the WeKnora user who bound the
+// channel: their tenant role, their MCP OAuth tokens, and their session
+// ownership scope. The external IM user is recorded in ActingVia for audit.
+//
+// Without runAs (legacy channels), it mirrors the API-key path's
+// "system-<tenantID>" synthetic user (recognised by types.IsSyntheticUserID)
+// so Organization-shared knowledge bases resolve, and the principal stays the
+// per-IM-user im_user. Viewer is the least privilege sufficient to retrieve
+// shared KBs.
+//
+// The channel locale replaces any HTTP middleware value because webhook
+// Accept-Language belongs to the IM platform, not the writer; channels without
+// an explicit locale use the deployment default. MCP OAuth is always marked
+// non-interactive: IM has no live client to complete an in-conversation prompt.
 func withIMIdentity(ctx context.Context, channel *IMChannel, msg *IncomingMessage) context.Context {
+	return withIMIdentityRunAs(ctx, channel, msg, nil)
+}
+
+// withIMIdentityRunAs is withIMIdentity with an explicit bound-user identity.
+func withIMIdentityRunAs(
+	ctx context.Context,
+	channel *IMChannel,
+	msg *IncomingMessage,
+	runAs *imRunAs,
+) context.Context {
 	tenantID := channel.TenantID
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, tenantID)
-	ctx = context.WithValue(ctx, types.UserIDContextKey, fmt.Sprintf("system-%d", tenantID))
 	locale := channel.Locale
 	if locale == "" {
 		locale = types.DefaultLanguage()
 	}
 	ctx = context.WithValue(ctx, types.LanguageContextKey, locale)
+
+	if runAs != nil && runAs.UserID != "" {
+		ctx = context.WithValue(ctx, types.UserIDContextKey, runAs.UserID)
+		ctx = types.WithPrincipal(ctx, types.Principal{
+			Type:      types.PrincipalWebUser,
+			ID:        runAs.UserID,
+			ActingVia: types.IMActingVia(channel.ID),
+		})
+		ctx = context.WithValue(ctx, types.TenantRoleContextKey, runAs.Role)
+	} else {
+		ctx = context.WithValue(ctx, types.UserIDContextKey, fmt.Sprintf("system-%d", tenantID))
+		ctx = context.WithValue(ctx, types.TenantRoleContextKey, types.TenantRoleViewer)
+		if msg != nil {
+			principalID := fmt.Sprintf("%d:%s:%s:%s", tenantID, channel.ID, msg.Platform, msg.UserID)
+			ctx = types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalIMUser, ID: principalID})
+		}
+	}
 	if msg != nil {
-		principalID := fmt.Sprintf("%d:%s:%s:%s", tenantID, channel.ID, msg.Platform, msg.UserID)
-		ctx = types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalIMUser, ID: principalID})
 		ctx = types.WithPrincipalAuthSource(ctx, types.AuthSourceIM)
 	}
-	ctx = context.WithValue(ctx, types.TenantRoleContextKey, types.TenantRoleViewer)
-	// IM bots have no live client that can complete an in-conversation MCP OAuth
-	// prompt, so mark the context non-interactive: the agent emits a one-shot
-	// authorization notice (surfaced in the reply) instead of blocking until the
-	// OAuth wait times out for every unauthorized service.
 	ctx = types.WithMCPOAuthNonInteractive(ctx)
 	return ctx
+}
+
+// imSessionOwnerID is the sessions.user_id scope for a session created by an
+// IM turn. Bound-user channels own their sessions like any web chat; legacy
+// channels keep the historical tenant-level (empty) row.
+func imSessionOwnerID(ctx context.Context) string {
+	principal, ok := types.PrincipalFromContext(ctx)
+	if !ok || principal.Type != types.PrincipalWebUser || !types.IsIMActingVia(principal.ActingVia) {
+		return ""
+	}
+	return strings.TrimSpace(principal.ID)
 }
 
 // imMCPAuthService identifies an OAuth-enabled MCP service that the IM user has
@@ -876,6 +963,7 @@ func NewService(
 	storageResolver interfaces.StorageBackendResolver,
 	resourceCatalog interfaces.ResourceCatalog,
 	kbShareService interfaces.KBShareService,
+	memberService interfaces.TenantMemberService,
 ) *Service {
 	// Resolve IM configuration with defaults.
 	workers, maxQueue, maxPerUser, globalMaxWorkers, rlWindow, rlMax := resolveIMConfig(appCfg)
@@ -903,6 +991,7 @@ func NewService(
 		storageResolver:  storageResolver,
 		resourceCatalog:  resourceCatalog,
 		kbShareService:   kbShareService,
+		memberService:    memberService,
 		oauthManager:     oauthManager,
 		cmdRegistry:      registry,
 		channels:         make(map[string]*channelState),
@@ -1793,7 +1882,7 @@ func (s *Service) HandleMessage(ctx context.Context, msg *IncomingMessage, chann
 		return fmt.Errorf("get tenant: %w", err)
 	}
 	sessionCtx := context.WithValue(ctx, types.TenantInfoContextKey, tenant)
-	sessionCtx = withIMIdentity(sessionCtx, channel, msg)
+	sessionCtx = withIMIdentityRunAs(sessionCtx, channel, msg, s.resolveChannelRunAs(sessionCtx, channel))
 
 	// 2. Resolve or create a WeKnora session
 	channelSession, err := s.resolveSession(sessionCtx, msg, tenantID, agentID, channelID, channel.SessionMode)
@@ -2344,6 +2433,7 @@ func (s *Service) resolveUserSession(ctx context.Context, msg *IncomingMessage, 
 
 	newSession := &types.Session{
 		TenantID:    tenantID,
+		UserID:      imSessionOwnerID(ctx),
 		Title:       title,
 		Description: fmt.Sprintf("Auto-created from %s IM integration", msg.Platform),
 	}
@@ -2417,6 +2507,7 @@ func (s *Service) resolveThreadSession(ctx context.Context, msg *IncomingMessage
 
 	newSession := &types.Session{
 		TenantID:    tenantID,
+		UserID:      imSessionOwnerID(ctx),
 		Title:       title,
 		Description: fmt.Sprintf("Thread-based session from %s IM", msg.Platform),
 	}
@@ -3282,6 +3373,29 @@ func (s *Service) SetChannelAgentID(ctx context.Context, channel *IMChannel, age
 		return fmt.Errorf("agent not found")
 	}
 	channel.AgentID = agentID
+	return nil
+}
+
+// SetChannelBoundUser binds the WeKnora user whose permissions this channel
+// runs as. The user must be an active member of the channel's workspace; an
+// empty ID clears the binding and restores the legacy per-IM-user identity.
+func (s *Service) SetChannelBoundUser(ctx context.Context, channel *IMChannel, userID string) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		channel.BoundUserID = ""
+		return nil
+	}
+	if s.memberService == nil {
+		return fmt.Errorf("membership service is unavailable")
+	}
+	member, err := s.memberService.GetMembership(ctx, userID, channel.TenantID)
+	if err != nil {
+		return fmt.Errorf("failed to resolve user: %w", err)
+	}
+	if member == nil || !member.Role.IsValid() {
+		return fmt.Errorf("user is not an active member of this workspace")
+	}
+	channel.BoundUserID = userID
 	return nil
 }
 

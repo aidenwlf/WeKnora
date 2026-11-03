@@ -347,7 +347,7 @@ Agent 对话中调用 OAuth MCP 工具、而当前用户尚未授权时，不会
 2. 通过 `approval.Gate.RequestOAuthAndWait` 向前端 EventBus 发出 `EventMCPOAuthRequired` 事件（含 `pending_id`、服务与工具名、超时秒数），**阻塞等待**；等待时长取 Agent 配置的 `mcp_auth_wait_timeout`（`internal/types/custom_agent.go`），未配置时用 Gate 默认超时；
 3. 用户在弹出的授权窗完成 1.6 的标准流程后，前端调用 `POST /agent/mcp-oauth-resolutions/{pending_id}`；handler（`mcp_oauth.go` 的 `ResolveMCPOAuth`）**先校验 `(tenant, principal, service)` 确实已持有 token** 才放行（否则 409），避免恢复后再次失败；用户也可 `cancel` 跳过；
 4. 放行后 `CloseClient` + 重连重试一次原调用；超时/取消则以拒绝决议返回。
-5. **非交互渠道**（IM 机器人等，ctx 带 `types.WithMCPOAuthNonInteractive` 标记）不会阻塞：`emitMCPOAuthRequiredNotice` 只发一条 `TimeoutSeconds: 0` 的通知事件，提示用户去 Web 控制台带外授权，Agent 跳过该工具继续。
+5. **非交互渠道**（IM 机器人等，ctx 带 `types.WithMCPOAuthNonInteractive` 标记）不会阻塞：`emitMCPOAuthRequiredNotice` 只发一条 `TimeoutSeconds: 0` 的通知事件，提示用户去 Web 控制台带外授权，Agent 跳过该工具继续。IM 渠道若配置了 `bound_user_id`，整个 run 以绑定用户身份执行，复用其已持有的 token 与 `mcp_metadata` 目录，通常不会走到这一步；无绑定用户的旧渠道才按 IM principal 单独授权。
 
 #### 工具发现与 Agent 集成（mcp_tool.go） {#_1-7-工具发现与-agent-集成-mcp-tool-go}
 

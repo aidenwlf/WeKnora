@@ -76,13 +76,18 @@ IM 集成将智能体接入企业微信、飞书、钉钉、Slack、Telegram 等
 
 图片仍然不显示时，按[图片与文件的对外访问](21-file-access.md)的排查表逐项对照——那里汇总了四种 URL 形式与各渠道的取法。
 
-## MCP OAuth 授权通知（身份绑定）
+## MCP OAuth 授权通知（渠道绑定用户）
 
 IM 场景下没有可交互的前端来完成 MCP 服务的会话内 OAuth 授权，因此：
 
+- **渠道绑定用户**（`im_channels.bound_user_id`）：创建渠道时记录发起绑定的后台用户；此后该渠道的每条消息都以**该用户的身份**运行——复用其 TenantRole、MCP OAuth token 与会话归属（principal 形如 `web_user:<userID>` + `ActingVia=im:<channelID>`）。因此后台已完成的 MCP 授权在 IM 里直接生效，不需要每个微信/钉钉用户重新授权。
+- 绑定用户被移除、停用或不再是工作区成员时**失败关闭**：运行时回退到旧的 `system-<tenantID>` 合成身份，不会继续使用残留权限。
 - `withIMIdentity` 给上下文打上 `MCPOAuthNonInteractive` 标记——Agent 遇到未授权的 OAuth MCP 服务时**不阻塞等待**，而是发出一次性 `EventMCPOAuthRequired` 事件；
-- `handleMessageStream` 收集这些事件（按 ServiceID 去重），回答结束后由 `buildIMMCPAuthNotice` 生成授权提示追加在回复末尾：若配置了 `APP_EXTERNAL_URL` 且 OAuthManager 可用，则为每个服务生成专属授权链接（回调地址 `<APP_EXTERNAL_URL>/api/v1/mcp-oauth/callback`，主体为 `PrincipalIMUser`，即授权与"租户+渠道+平台+IM 用户"绑定）；否则提示到 WeKnora 管理后台完成授权；
+- `handleMessageStream` 收集这些事件（按 ServiceID 去重），回答结束后由 `buildIMMCPAuthNotice` 生成授权提示追加在回复末尾：若配置了 `APP_EXTERNAL_URL` 且 OAuthManager 可用，则为每个服务生成专属授权链接（回调地址 `<APP_EXTERNAL_URL>/api/v1/mcp-oauth/callback`，主体即渠道绑定用户；旧渠道无绑定用户时为 `PrincipalIMUser`）；否则提示到 WeKnora 管理后台完成授权；
 - 用户点链接完成授权后**重新发送原消息**即可使用该 MCP 服务。
+
+> [!WARNING]
+> 渠道绑定用户等于把该用户的权限授予**所有能给这个机器人发消息的人**。仅对私有/单 owner 的机器人使用；多人共享的机器人应保持渠道无绑定用户（逐 IM 用户授权），或等待后续的身份绑定能力。
 
 ```mermaid
 flowchart LR
@@ -90,8 +95,8 @@ flowchart LR
     B --> C{"MCP 服务已授权?"}
     C -- "是" --> D["正常调用工具并回答"]
     C -- "否 (NonInteractive)" --> E["发出 EventMCPOAuthRequired<br/>(不阻塞, 继续作答)"]
-    E --> F["回复末尾追加授权链接<br/>StartAuthorizationForService<br/>(principal = tenant:channel:platform:user)"]
-    F --> G["用户浏览器完成 OAuth<br/>回调 /api/v1/mcp-oauth/callback"]
+    E --> F["回复末尾追加授权链接<br/>StartAuthorizationForService<br/>(principal = 渠道绑定用户)"]
+    F --> G["绑定用户在浏览器完成 OAuth<br/>回调 /api/v1/mcp-oauth/callback"]
     G --> H["用户重发消息 → 工具可用"]
 ```
 
@@ -109,6 +114,7 @@ flowchart LR
 | `Locale` | 回复语言：`zh-CN` / `en-US` / `ja-JP` / `ko-KR` / `ru-RU`，其他值返回 400。留空（默认）使用 `WEKNORA_LANGUAGE`，未设置时为 `zh-CN`。IM 回调请求头里的 `Accept-Language` 来自平台而非提问者，因此不参与决定回复语言 |
 | `KnowledgeBaseID` | 可选"文件知识库"。无论是否配置，文件/图片都会下载后供 QA 理解；配置后会额外在后台入库（见下文） |
 | `SessionMode` | `user`（默认，按 平台+用户+群 维度映射会话）或 `thread`（按 平台+线程+群 维度，每个顶层消息开新会话） |
+| `BoundUserID` | 发起绑定的 WeKnora 用户。该渠道的每条消息都以该用户的身份运行（TenantRole、MCP OAuth token、会话归属）。为空表示旧渠道，保持 `system-<tenantID>` + 逐 IM 用户 principal |
 | `BotIdentity` | 由平台+模式+凭据推导的机器人唯一标识（`computeBotIdentity`，如 `feishu:<app_id>`、`telegram:<botID>`、`wecom:ws:<bot_id>`），数据库唯一索引防止同一个机器人被配置到两个渠道（`checkDuplicateBot` 返回 `duplicate_bot:` 前缀错误 → HTTP 409） |
 | `Credentials` | JSONB 凭据。列表接口（`IMChannelSummary`）**从不返回凭据内容**，只返回 `credentials_configured` 布尔值 |
 
@@ -209,7 +215,7 @@ sequenceDiagram
 - **限流**：按 `channelID:userID:chatID[:threadID]` 做滑动窗口限流（默认 60s 内 10 条，可经 `config.IM` 覆盖）；**斜杠命令绕过限流**，保证用户在风暴中仍能 `/stop`。
 - **QA 队列**（`qaqueue.go`）：有界队列 + 固定 worker 池（默认 workers=5、队列上限 50、单用户排队上限 3、排队超时 60s），多实例下通过 Redis 计数实现**全局单用户上限**（`im:queue:user:`）与可选的**全局并发闸门**（`im:global:active` + Lua 脚本，`GlobalMaxWorkers` 配置），对下游 LLM 形成背压。排队位置 > 0 时先回一条"排队中"提示。
 - **会话解析**：`user` 模式按用户维度共享会话，标题形如"张三 · 群聊 1a2b3c4d"；`thread` 模式每个顶层消息/话题一个会话（Slack thread、飞书话题群、Telegram Forum Topic、Mattermost root_id）。首条消息会异步生成会话标题（`GenerateTitleAsync`）。
-- **身份注入**（`withIMIdentity`）：IM 回调走平台签名而非 WeKnora 登录态，因此注入合成身份 `system-<tenantID>` + `PrincipalIMUser`（`tenantID:channelID:platform:userID`）+ Viewer 角色，使组织共享知识库等依赖 UserID 的逻辑正常工作；同时标记 `MCPOAuthNonInteractive`（见[MCP OAuth 授权通知](#mcp-oauth-授权通知-身份绑定)）。
+- **身份注入**（`withIMIdentityRunAs`）：IM 回调走平台签名而非 WeKnora 登录态。渠道有 `bound_user_id` 时注入该用户的 `web_user` principal（`ActingVia=im:<channelID>`）与真实 TenantRole，MCP OAuth、共享知识库、会话归属都按该用户解析；无绑定用户时回落为合成身份 `system-<tenantID>` + `PrincipalIMUser`（`tenantID:channelID:platform:userID`）+ Viewer 角色。两种情况都会标记 `MCPOAuthNonInteractive`（见[MCP OAuth 授权通知](#mcp-oauth-授权通知渠道绑定用户)）。
 - **流式渲染**（`handleMessageStream` + `think.go` + `tool_display.go`）：订阅 EventBus 的 `EventAgentThought`（思考）、`EventAgentToolCall`/`EventAgentToolResult`（工具状态行，内部工具经 `isToolVisibleToUser` 过滤；快速问答只显示 `query_understand`/`knowledge_search` 两个 RAG 流水线工具）、`EventAgentFinalAnswer`（答案分片）、`EventAgentReferences`（引用）、`EventAgentComplete`。Agent 模式下"乐观答案"在后续又发起工具调用时会被**撤回**进思考块（`retractAgentLiveAnswer`，与 Web 端 superseded preamble 一致）。每 300ms 把缓冲内容整段推送（`UpdateStreamContent` 为替换语义）；`holdbackCutoff` 会扣住跨分片边界的不完整 `provider://` URL、Markdown 图片、XML 标签，避免闪烁半截内容。最终 `FinalizeStream` 只保留答案文本（`StripThinkBlocks`），并把 `<kb/>`、`<web/>` 引用标签与 `<image>` XML 清洗掉、`provider://` 存储 URL 重写为可访问链接（`cleanIMContent` / `rewriteStorageURLs`）。
 - **流式收尾**：Agent 模式下，收到 `EventAgentComplete` 或 AgentQA 调用返回（以先到者为准）都会结束流式回复，避免卡片停在「生成中」；完成事件之后产生的错误仍会收集并附在最终回复中。快速问答（KnowledgeQA）的答案流是异步的，以流结束为准。飞书流式卡片在长时间问答期间保持活跃，不会被过期清理提前回收。
 - **非流式路径**：渠道 `output_mode=full`、适配器不支持 `StreamSender`、或 `StartStream` 失败时，走 `runQA` 聚合完整答案后 `SendReply` 一次性发送。

@@ -32,6 +32,11 @@ type IMChannel struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `json:"deleted_at"  gorm:"index"`
+	// BoundUserID is the WeKnora user who bound this channel. IM callbacks carry
+	// no WeKnora session, so every turn runs with this user's identity (including
+	// MCP OAuth tokens and tenant role). Empty keeps the legacy synthetic
+	// system-<tenant> identity and per-IM-user OAuth principal.
+	BoundUserID string `json:"bound_user_id" gorm:"type:varchar(36);not null;default:''"`
 }
 
 func (IMChannel) TableName() string {
@@ -54,6 +59,7 @@ type IMChannelSummary struct {
 	KnowledgeBaseID       string    `json:"knowledge_base_id"`
 	BotIdentity           string    `json:"bot_identity"`
 	SessionMode           string    `json:"session_mode"`
+	BoundUserID           string    `json:"bound_user_id"`
 	CredentialsConfigured bool      `json:"credentials_configured"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
@@ -74,6 +80,7 @@ func SummarizeIMChannel(ch IMChannel) IMChannelSummary {
 		KnowledgeBaseID:       ch.KnowledgeBaseID,
 		BotIdentity:           ch.BotIdentity,
 		SessionMode:           ch.SessionMode,
+		BoundUserID:           ch.BoundUserID,
 		CredentialsConfigured: imCredentialsConfigured(ch.Credentials),
 		CreatedAt:             ch.CreatedAt,
 		UpdatedAt:             ch.UpdatedAt,

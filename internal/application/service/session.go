@@ -72,6 +72,11 @@ func runtimeMayBypassAdminConsoleRead(
 	switch principal.Type {
 	case types.PrincipalIMUser:
 		return strings.TrimSpace(imPlatform) != ""
+	case types.PrincipalWebUser:
+		// A bound IM channel runs as the user who bound it. The row is
+		// channel-managed (Admin+ only for humans in the console), but the
+		// runtime must read and write its own session for every turn.
+		return types.IsIMActingVia(principal.ActingVia) && strings.TrimSpace(imPlatform) != ""
 	case types.PrincipalAPITenant, types.PrincipalAPIExternalUser:
 		ownerID := types.SessionOwnerIDFromContext(ctx)
 		return types.IsAPISessionOwnerID(session.UserID) && session.UserID == ownerID

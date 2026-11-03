@@ -1,0 +1,1 @@
+ALTER TABLE im_channels ADD COLUMN bound_user_id VARCHAR(36) NOT NULL DEFAULT '';

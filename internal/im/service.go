@@ -3399,6 +3399,28 @@ func (s *Service) SetChannelBoundUser(ctx context.Context, channel *IMChannel, u
 	return nil
 }
 
+// assignChannelSessionOwner transfers every conversation produced by a channel
+// to its bound user, so the owner scope used by reads and writes matches the
+// channel's binding. Re-binding moves earlier conversations to the new binder:
+// a channel's history follows whoever currently binds it.
+func (s *Service) assignChannelSessionOwner(ctx context.Context, channelID, ownerID string) error {
+	channelID = strings.TrimSpace(channelID)
+	ownerID = strings.TrimSpace(ownerID)
+	if channelID == "" || ownerID == "" {
+		return nil
+	}
+	return s.db.WithContext(ctx).Exec(
+		`UPDATE sessions
+		 SET user_id = ?,
+		     owner_auth_source = CASE WHEN COALESCE(user_id, '') = '' THEN ? ELSE owner_auth_source END,
+		     updated_at = CURRENT_TIMESTAMP
+		 WHERE id IN (
+		     SELECT session_id FROM im_channel_sessions WHERE im_channel_id = ?
+		 )`,
+		ownerID, types.AuthSourceIM, channelID,
+	).Error
+}
+
 // SetChannelKnowledgeBaseID binds the KB that IM files are saved into. It must
 // belong to the channel's workspace, which writes into it, and to a KB-restricted
 // API key's allow-list; a foreign ID would create records in (and read the
@@ -3425,15 +3447,27 @@ func (s *Service) SetChannelKnowledgeBaseID(ctx context.Context, channel *IMChan
 
 // UpdateChannel updates a channel and restarts it if needed.
 // Returns a duplicate_bot error if the bot identity is already used by another channel.
-func (s *Service) UpdateChannel(channel *IMChannel) error {
+func (s *Service) UpdateChannel(ctx context.Context, channel *IMChannel) error {
 	if err := validateChannelTransport(channel); err != nil {
 		return err
 	}
 	if err := s.checkDuplicateBot(channel, channel.ID); err != nil {
 		return err
 	}
+	var previousBoundUserID string
+	if err := s.db.WithContext(ctx).Model(&IMChannel{}).
+		Where("id = ?", channel.ID).
+		Pluck("bound_user_id", &previousBoundUserID).Error; err != nil {
+		logger.Warnf(ctx, "[IM] Failed to read previous binding for channel %s: %v", channel.ID, err)
+	}
 	if err := s.db.Save(channel).Error; err != nil {
 		return err
+	}
+	if previousBoundUserID != channel.BoundUserID && channel.BoundUserID != "" {
+		if err := s.assignChannelSessionOwner(ctx, channel.ID, channel.BoundUserID); err != nil {
+			logger.Warnf(ctx, "[IM] Failed to move channel %s sessions to bound user %s: %v",
+				channel.ID, channel.BoundUserID, err)
+		}
 	}
 	// Restart channel: stop old, start new if enabled
 	s.StopChannel(channel.ID)

@@ -114,7 +114,7 @@ flowchart LR
 | `Locale` | 回复语言：`zh-CN` / `en-US` / `ja-JP` / `ko-KR` / `ru-RU`，其他值返回 400。留空（默认）使用 `WEKNORA_LANGUAGE`，未设置时为 `zh-CN`。IM 回调请求头里的 `Accept-Language` 来自平台而非提问者，因此不参与决定回复语言 |
 | `KnowledgeBaseID` | 可选"文件知识库"。无论是否配置，文件/图片都会下载后供 QA 理解；配置后会额外在后台入库（见下文） |
 | `SessionMode` | `user`（默认，按 平台+用户+群 维度映射会话）或 `thread`（按 平台+线程+群 维度，每个顶层消息开新会话） |
-| `BoundUserID` | 发起绑定的 WeKnora 用户。该渠道的每条消息都以该用户的身份运行（TenantRole、MCP OAuth token、会话归属）。为空表示旧渠道，保持 `system-<tenantID>` + 逐 IM 用户 principal |
+| `BoundUserID` | 发起绑定的 WeKnora 用户。该渠道的每条消息都以该用户的身份运行（TenantRole、MCP OAuth token、会话归属）。为空表示旧渠道，保持 `system-<tenantID>` + 逐 IM 用户 principal。**会话隔离**：IM 来源的会话列表与计数只返回绑定用户自己的渠道；其他 Admin 看不到，系统管理员保留全租户视图；单条会话读取同样校验绑定用户。重新绑定会把该渠道的历史会话转移给新的绑定用户 |
 | `BotIdentity` | 由平台+模式+凭据推导的机器人唯一标识（`computeBotIdentity`，如 `feishu:<app_id>`、`telegram:<botID>`、`wecom:ws:<bot_id>`），数据库唯一索引防止同一个机器人被配置到两个渠道（`checkDuplicateBot` 返回 `duplicate_bot:` 前缀错误 → HTTP 409） |
 | `Credentials` | JSONB 凭据。列表接口（`IMChannelSummary`）**从不返回凭据内容**，只返回 `credentials_configured` 布尔值 |
 

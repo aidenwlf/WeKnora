@@ -94,3 +94,57 @@ func TestSetChannelBoundUser(t *testing.T) {
 		t.Fatalf("BoundUserID = %q after clear, want empty", channel.BoundUserID)
 	}
 }
+
+func TestAssignChannelSessionOwnerMovesChannelHistory(t *testing.T) {
+	db := newLifecycleTestDB(t)
+	if err := db.Exec(`CREATE TABLE sessions (
+		id TEXT PRIMARY KEY,
+		user_id TEXT,
+		owner_auth_source TEXT NOT NULL DEFAULT '',
+		updated_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE im_channel_sessions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT,
+		im_channel_id TEXT
+	)`).Error; err != nil {
+		t.Fatalf("create im_channel_sessions: %v", err)
+	}
+	for _, row := range []struct{ id, owner string }{
+		{"s-own", "alice"}, {"s-empty", ""}, {"s-other", "carol"}, {"s-unrelated", "bob"},
+	} {
+		if err := db.Exec(`INSERT INTO sessions (id, user_id) VALUES (?, ?)`, row.id, row.owner).Error; err != nil {
+			t.Fatalf("insert session %s: %v", row.id, err)
+		}
+	}
+	for _, row := range []struct{ sessionID, channelID string }{
+		{"s-own", "ch-1"}, {"s-empty", "ch-1"}, {"s-other", "ch-1"}, {"s-unrelated", "ch-2"},
+	} {
+		if err := db.Exec(`INSERT INTO im_channel_sessions (session_id, im_channel_id) VALUES (?, ?)`,
+			row.sessionID, row.channelID).Error; err != nil {
+			t.Fatalf("insert mapping %s: %v", row.sessionID, err)
+		}
+	}
+
+	s := &Service{db: db}
+	if err := s.assignChannelSessionOwner(context.Background(), "ch-1", "dave"); err != nil {
+		t.Fatalf("assignChannelSessionOwner() error = %v", err)
+	}
+
+	owners := map[string]string{}
+	for _, id := range []string{"s-own", "s-empty", "s-other", "s-unrelated"} {
+		var owner string
+		if err := db.Raw(`SELECT COALESCE(user_id, '') FROM sessions WHERE id = ?`, id).Scan(&owner).Error; err != nil {
+			t.Fatalf("read owner %s: %v", id, err)
+		}
+		owners[id] = owner
+	}
+	if owners["s-own"] != "dave" || owners["s-empty"] != "dave" || owners["s-other"] != "dave" {
+		t.Fatalf("channel sessions not moved to dave: %#v", owners)
+	}
+	if owners["s-unrelated"] != "bob" {
+		t.Fatalf("unrelated session owner changed to %q", owners["s-unrelated"])
+	}
+}

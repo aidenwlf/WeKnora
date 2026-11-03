@@ -275,9 +275,11 @@ func (r sessionManagementErrorRepo) GetByID(
 	return r.SessionRepository.GetByID(ctx, tenantID, id)
 }
 
-func (r sessionManagementErrorRepo) GetIMPlatform(ctx context.Context, tenantID uint64, id string) (string, error) {
+func (r sessionManagementErrorRepo) GetIMOrigin(
+	ctx context.Context, tenantID uint64, id string,
+) (string, string, error) {
 	if id == r.targetID && r.stage == "im_platform" {
-		return "", r.err
+		return "", "", r.err
 	}
-	return r.SessionRepository.GetIMPlatform(ctx, tenantID, id)
+	return r.SessionRepository.GetIMOrigin(ctx, tenantID, id)
 }

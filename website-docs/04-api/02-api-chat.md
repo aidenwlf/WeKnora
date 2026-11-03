@@ -48,7 +48,7 @@ curl -X POST $BASE/api/v1/sessions -H "X-API-Key: $API_KEY" \
 | `page` / `page_size` | int | 否 | 分页 |
 | `keyword` | string | 否 | 标题模糊搜索 |
 | `kind` | string | 否 | 缺省或空值仅返回普通会话，适用于所有来源；`assistant` 仅返回调用者本人的助手会话（管理员也不能跨用户），按 `updated_at DESC` 排序；其他值返回 400 |
-| `source` | string | 否 | 来源过滤（web/embed/api/feishu/wechat/slack/...） |
+| `source` | string | 否 | 来源过滤（web/embed/api/feishu/wechat/slack/...）。IM 来源（平台名）仅返回**当前用户所绑定渠道**的会话；系统管理员返回全租户。其他 Admin 看不到别人绑定渠道的会话 |
 | `agent_id` | string | 否 | 按 Agent 过滤（IM 会话） |
 
 响应：200 `{"success":true,"data":[SessionListItem],"total","page","page_size"}`

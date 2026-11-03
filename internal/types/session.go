@@ -286,15 +286,19 @@ func SanitizeClientSessionDescription(incoming, existing string) string {
 // "api" (all API-key sessions, Admin+ only), or an IM platform name
 // (e.g. "feishu", "wechat"). IM and embed sources are also Admin+ only.
 // AgentID currently only filters sessions that have an IM channel mapping.
+// IMBoundUserID, when set on an IM source, restricts the result to sessions of
+// channels bound to that user: a channel's conversations belong to whoever
+// bound it. Empty means tenant-wide (system administrators).
 type SessionListQuery struct {
-	Kind     string
-	TenantID uint64
-	UserID   string
-	Keyword  string
-	Source   string
-	AgentID  string
-	Page     int
-	PageSize int
+	Kind          string
+	TenantID      uint64
+	UserID        string
+	Keyword       string
+	Source        string
+	IMBoundUserID string
+	AgentID       string
+	Page          int
+	PageSize      int
 }
 
 // SessionListItem is a session row enriched with its IM origin (when any).

@@ -86,10 +86,12 @@ type SessionRepository interface {
 	// GetByID loads a session by tenant and id without user scoping. Callers
 	// must enforce access (e.g. embed channel + session signature).
 	GetByID(ctx context.Context, tenantID uint64, id string) (*types.Session, error)
-	// GetIMPlatform returns the IM platform bound to a session via
-	// im_channel_sessions, or "" when the session has no IM mapping. Used to
-	// classify a session's origin folder on read without a full list query.
-	GetIMPlatform(ctx context.Context, tenantID uint64, sessionID string) (string, error)
+	// GetIMOrigin returns the IM platform bound to a session via
+	// im_channel_sessions and the user who bound that channel ("" for legacy
+	// channels). Platform is "" when the session has no IM mapping. Used to
+	// classify a session's origin folder and to scope channel conversations to
+	// their binder on read without a full list query.
+	GetIMOrigin(ctx context.Context, tenantID uint64, sessionID string) (platform, boundUserID string, err error)
 	// GetByTenantID gets all sessions visible to the tenant/user scope.
 	GetByTenantID(ctx context.Context, tenantID uint64, userID string) ([]*types.Session, error)
 	// GetPagedByTenantID gets paged sessions visible to the tenant/user scope.

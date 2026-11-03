@@ -295,7 +295,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 		channel.BoundUserID = callerWebUserID(c.Request.Context())
 	}
 
-	if err := h.imService.UpdateChannel(channel); err != nil {
+	if err := h.imService.UpdateChannel(c.Request.Context(), channel); err != nil {
 		logger.Errorf(c.Request.Context(), "[IM] Update channel failed: %v", err)
 		if strings.HasPrefix(err.Error(), "duplicate_bot:") {
 			c.JSON(http.StatusConflict, gin.H{"error": strings.TrimPrefix(err.Error(), "duplicate_bot: ")})

@@ -99,23 +99,30 @@ func (r *sessionRepository) GetByID(ctx context.Context, tenantID uint64, id str
 	return &session, nil
 }
 
-// GetIMPlatform returns the IM platform bound to a session, or "" when none.
-// It intentionally ignores soft-deleted mappings' visibility rules used by
-// QueryPaged: any mapping (active or cleared) marks the session as IM-origin.
-func (r *sessionRepository) GetIMPlatform(
+// GetIMOrigin returns the IM platform bound to a session and the user who
+// bound that channel. Empty platform means no IM mapping; empty boundUserID
+// means a legacy channel that predates binding. It intentionally ignores
+// soft-deleted mappings' visibility rules used by QueryPaged: any mapping
+// (active or cleared) marks the session as IM-origin.
+func (r *sessionRepository) GetIMOrigin(
 	ctx context.Context, tenantID uint64, sessionID string,
-) (string, error) {
-	var platform string
+) (string, string, error) {
+	var row struct {
+		Platform    string
+		BoundUserID string
+	}
 	err := r.db.WithContext(ctx).
 		Table("im_channel_sessions AS ics").
 		Joins("JOIN sessions AS s ON s.id = ics.session_id").
+		Joins("LEFT JOIN im_channels AS ch ON ch.id = ics.im_channel_id").
+		Select("ics.platform AS platform, COALESCE(ch.bound_user_id, '') AS bound_user_id").
 		Where("ics.session_id = ? AND s.tenant_id = ?", sessionID, tenantID).
 		Limit(1).
-		Pluck("ics.platform", &platform).Error
+		Scan(&row).Error
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return platform, nil
+	return row.Platform, row.BoundUserID, nil
 }
 
 // GetByTenantID retrieves normal sessions for a tenant
@@ -195,6 +202,13 @@ func (r *sessionRepository) QueryPaged(
 			db = db.Where("s.user_id = ? AND s.user_id <> ''", q.UserID)
 		} else if q.UserID != "" {
 			db = db.Where("(s.user_id = ? OR s.user_id IS NULL OR s.user_id = '')", q.UserID)
+			// Channel conversations are scoped to the channel's binder even
+			// when the caller reaches them through the legacy empty-owner
+			// allowance. Unbound channels keep their historical visibility.
+			db = db.Where(
+				"(ch.bound_user_id IS NULL OR ch.bound_user_id = '' OR ch.bound_user_id = ?)",
+				q.UserID,
+			)
 		}
 		// Skill image maintenance runs in a real session so its transcript can
 		// be read back, but it is not a conversation. Excluding it here rather
@@ -217,11 +231,14 @@ func (r *sessionRepository) QueryPaged(
 	// recycling soft-delete the mapping (and start a fresh session), so filtering
 	// deleted mappings out here would mis-bucket those past IM conversations into the
 	// user's own web chats ("web" = ics.id IS NULL).
+	// The channel join carries the binding user: a channel's conversations belong to
+	// whoever bound it, so they stay out of other users' lists.
 	// Safe from row fan-out because the IM flow only ever creates a *fresh* session
 	// for a new mapping (never re-maps an existing one), so a session has at most one
 	// mapping row. If that ever changes, this JOIN would need a one-row-per-session
 	// guard (the unique index only constrains active mappings).
-	joinClause := "LEFT JOIN im_channel_sessions ics ON ics.session_id = s.id"
+	joinClause := "LEFT JOIN im_channel_sessions ics ON ics.session_id = s.id " +
+		"LEFT JOIN im_channels ch ON ch.id = ics.im_channel_id"
 
 	applySource := func(db *gorm.DB) *gorm.DB {
 		src := strings.TrimSpace(q.Source)
@@ -252,7 +269,11 @@ func (r *sessionRepository) QueryPaged(
 					return db.Where("ics.id IS NULL AND s.description = ?", embedPrefix+channelID)
 				}
 			}
-			return db.Where("ics.platform = ?", lower)
+			db = db.Where("ics.platform = ?", lower)
+			if userID := strings.TrimSpace(q.IMBoundUserID); userID != "" {
+				db = db.Where("ch.bound_user_id = ?", userID)
+			}
+			return db
 		}
 	}
 	applyAgent := func(db *gorm.DB) *gorm.DB {

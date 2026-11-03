@@ -17,10 +17,19 @@ func newSessionRepositoryForTest(t *testing.T) (interfaces.SessionRepository, *g
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&types.Session{}))
+	// QueryPaged joins both tables to scope IM conversations to their binder.
+	require.NoError(t, db.AutoMigrate(&types.Session{}, &testIMChannelSession{}, &testIMChannel{}))
 
 	return NewSessionRepository(db), db
 }
+
+type testIMChannel struct {
+	ID          string `gorm:"primaryKey"`
+	TenantID    uint64
+	BoundUserID string `gorm:"column:bound_user_id"`
+}
+
+func (testIMChannel) TableName() string { return "im_channels" }
 
 func createSessionForTest(t *testing.T, db *gorm.DB, tenantID uint64, userID string) *types.Session {
 	t.Helper()
@@ -266,29 +275,34 @@ func TestSessionRepositoryQueryPagedWebExcludesAPIKeySessions(t *testing.T) {
 		"web must keep legacy tenant rows but exclude API-key sessions")
 }
 
-func TestSessionRepositoryGetIMPlatform(t *testing.T) {
+func TestSessionRepositoryGetIMOrigin(t *testing.T) {
 	repo, db := newSessionRepositoryForTest(t)
-	require.NoError(t, db.AutoMigrate(&testIMChannelSession{}))
 	ctx := context.Background()
 
+	require.NoError(t, db.Create(&testIMChannel{
+		ID: "channel-1", TenantID: 1, BoundUserID: "alice",
+	}).Error)
 	imSession := createSessionForTest(t, db, 1, "alice")
 	require.NoError(t, db.Create(&testIMChannelSession{
-		ID: "ics-1", SessionID: imSession.ID, Platform: "feishu",
+		ID: "ics-1", SessionID: imSession.ID, Platform: "feishu", IMChannelID: "channel-1",
 	}).Error)
 	webSession := createSessionForTest(t, db, 1, "alice")
 
-	platform, err := repo.GetIMPlatform(ctx, 1, imSession.ID)
+	platform, boundUserID, err := repo.GetIMOrigin(ctx, 1, imSession.ID)
 	require.NoError(t, err)
 	require.Equal(t, "feishu", platform)
+	require.Equal(t, "alice", boundUserID)
 
-	platform, err = repo.GetIMPlatform(ctx, 1, webSession.ID)
+	platform, boundUserID, err = repo.GetIMOrigin(ctx, 1, webSession.ID)
 	require.NoError(t, err)
 	require.Equal(t, "", platform)
+	require.Equal(t, "", boundUserID)
 
 	// Cross-tenant lookup must not leak the mapping.
-	platform, err = repo.GetIMPlatform(ctx, 2, imSession.ID)
+	platform, boundUserID, err = repo.GetIMOrigin(ctx, 2, imSession.ID)
 	require.NoError(t, err)
 	require.Equal(t, "", platform)
+	require.Equal(t, "", boundUserID)
 }
 
 func TestSessionRepositoryQueryPagedAPISourceReturnsAllTenantAPIKeySessions(t *testing.T) {
@@ -344,4 +358,44 @@ func TestSessionRepositoryQueryPagedHidesMaintenanceSessions(t *testing.T) {
 		require.EqualValues(t, 1, total,
 			"source=%q count must not include the maintenance session", source)
 	}
+}
+
+func TestSessionRepositoryQueryPagedScopesIMSourceToBoundUser(t *testing.T) {
+	repo, db := newSessionRepositoryForTest(t)
+	ctx := context.Background()
+
+	require.NoError(t, db.Create(&testIMChannel{ID: "ch-alice", TenantID: 1, BoundUserID: "alice"}).Error)
+	require.NoError(t, db.Create(&testIMChannel{ID: "ch-bob", TenantID: 1, BoundUserID: "bob"}).Error)
+	require.NoError(t, db.Create(&testIMChannel{ID: "ch-legacy", TenantID: 1}).Error)
+
+	aliceSession := createSessionForTest(t, db, 1, "alice")
+	bobSession := createSessionForTest(t, db, 1, "bob")
+	legacySession := createSessionForTest(t, db, 1, "")
+	for i, row := range []struct {
+		id, sessionID, channelID string
+	}{
+		{"ics-a", aliceSession.ID, "ch-alice"},
+		{"ics-b", bobSession.ID, "ch-bob"},
+		{"ics-l", legacySession.ID, "ch-legacy"},
+	} {
+		require.NoError(t, db.Create(&testIMChannelSession{
+			ID: row.id, SessionID: row.sessionID, Platform: "feishu",
+			IMChannelID: row.channelID, TenantID: 1,
+		}).Error, i)
+	}
+
+	items, total, err := repo.QueryPaged(ctx, &types.SessionListQuery{
+		TenantID: 1, Source: "feishu", IMBoundUserID: "alice", Page: 1, PageSize: 50,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Equal(t, []string{aliceSession.ID}, listItemIDsForTest(items))
+
+	// A system-administrator view (no bound filter) still sees every channel.
+	items, total, err = repo.QueryPaged(ctx, &types.SessionListQuery{
+		TenantID: 1, Source: "feishu", Page: 1, PageSize: 50,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 3, total)
+	require.ElementsMatch(t, []string{aliceSession.ID, bobSession.ID, legacySession.ID}, listItemIDsForTest(items))
 }

@@ -1,6 +1,7 @@
 package im
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,7 +12,7 @@ func TestDingtalkOnlySupportsStream(t *testing.T) {
 	channel := &IMChannel{Platform: "dingtalk", Mode: "webhook"}
 	// No database/connection factory is installed: reject before persistence or IO.
 	require.Error(t, service.CreateChannel(channel))
-	require.Error(t, service.UpdateChannel(channel))
+	require.Error(t, service.UpdateChannel(context.Background(), channel))
 	require.Error(t, service.StartChannel(channel))
 	channel.Mode = "websocket"
 	require.NoError(t, validateChannelTransport(channel))

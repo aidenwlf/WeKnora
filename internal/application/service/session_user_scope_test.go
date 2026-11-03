@@ -45,12 +45,25 @@ func newTestSessionService(t *testing.T) (*sessionService, *gorm.DB) {
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&types.Session{}))
+	// Source scoping joins the IM mapping and its channel binding.
+	require.NoError(t, db.AutoMigrate(
+		&types.Session{},
+		&testListSessionsIMChannelSession{},
+		&testListSessionsIMChannel{},
+	))
 
 	return &sessionService{
 		sessionRepo: repository.NewSessionRepository(db),
 	}, db
 }
+
+type testListSessionsIMChannel struct {
+	ID          string `gorm:"primaryKey"`
+	TenantID    uint64
+	BoundUserID string `gorm:"column:bound_user_id"`
+}
+
+func (testListSessionsIMChannel) TableName() string { return "im_channels" }
 
 func TestGetSessionIsScopedToCurrentUser(t *testing.T) {
 	svc, db := newTestSessionService(t)
@@ -315,10 +328,13 @@ func TestListSessionsIMSourceRequiresAdmin(t *testing.T) {
 	svc, db := newTestSessionService(t)
 	require.NoError(t, db.AutoMigrate(&testListSessionsIMChannelSession{}))
 
-	imSession := &types.Session{TenantID: 1, Title: "feishu chat"}
+	require.NoError(t, db.Create(&testListSessionsIMChannel{
+		ID: "ch-alice", TenantID: 1, BoundUserID: "alice",
+	}).Error)
+	imSession := &types.Session{TenantID: 1, UserID: "alice", Title: "feishu chat"}
 	require.NoError(t, db.Create(imSession).Error)
 	require.NoError(t, db.Create(&testListSessionsIMChannelSession{
-		SessionID: imSession.ID, Platform: "feishu",
+		SessionID: imSession.ID, Platform: "feishu", IMChannelID: "ch-alice",
 	}).Error)
 
 	viewerCtx := testSessionScopeContext(1, "alice")
@@ -328,10 +344,16 @@ func TestListSessionsIMSourceRequiresAdmin(t *testing.T) {
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, apperrors.ErrForbidden, appErr.Code)
 
+	// The binder sees their channel; another admin does not.
 	adminCtx := context.WithValue(testSessionScopeContext(1, "alice"), types.TenantRoleContextKey, types.TenantRoleAdmin)
 	result, err := svc.ListSessions(adminCtx, &types.SessionListQuery{Source: "feishu"})
 	require.NoError(t, err)
 	require.EqualValues(t, 1, result.Total)
+
+	otherAdminCtx := context.WithValue(testSessionScopeContext(1, "bob"), types.TenantRoleContextKey, types.TenantRoleAdmin)
+	result, err = svc.ListSessions(otherAdminCtx, &types.SessionListQuery{Source: "feishu"})
+	require.NoError(t, err)
+	require.EqualValues(t, 0, result.Total)
 }
 
 func TestListSessionsEmbedSourceRequiresAdmin(t *testing.T) {
@@ -559,4 +581,73 @@ func TestGetSessionAllowsBoundIMRuntimeToReadItsOwnSession(t *testing.T) {
 	})
 	_, err = svc.GetSession(otherCtx, imSession.ID)
 	require.ErrorIs(t, err, apperrors.ErrSessionNotFound)
+}
+
+func testChannelSessionContext(tenantID uint64, userID string, role types.TenantRole, systemAdmin bool) context.Context {
+	ctx := testSessionScopeContext(tenantID, userID)
+	ctx = context.WithValue(ctx, types.TenantRoleContextKey, role)
+	ctx = context.WithValue(ctx, types.SystemAdminContextKey, systemAdmin)
+	return ctx
+}
+
+func seedBoundIMSession(t *testing.T, db *gorm.DB, tenantID uint64, owner, channelID string) *types.Session {
+	t.Helper()
+	session := &types.Session{TenantID: tenantID, UserID: owner, Title: owner + " im chat"}
+	require.NoError(t, db.Create(session).Error)
+	require.NoError(t, db.Create(&testListSessionsIMChannelSession{
+		SessionID: session.ID, Platform: "feishu", IMChannelID: channelID,
+	}).Error)
+	return session
+}
+
+func TestListSessionsScopesIMSourceToBoundChannels(t *testing.T) {
+	svc, db := newTestSessionService(t)
+	require.NoError(t, db.Create(&testListSessionsIMChannel{ID: "ch-alice", TenantID: 1, BoundUserID: "alice"}).Error)
+	require.NoError(t, db.Create(&testListSessionsIMChannel{ID: "ch-bob", TenantID: 1, BoundUserID: "bob"}).Error)
+	aliceSession := seedBoundIMSession(t, db, 1, "alice", "ch-alice")
+	seedBoundIMSession(t, db, 1, "bob", "ch-bob")
+
+	aliceCtx := testChannelSessionContext(1, "alice", types.TenantRoleAdmin, false)
+	res, err := svc.ListSessions(aliceCtx, &types.SessionListQuery{Source: "feishu", Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, res.Total)
+	items, ok := res.Data.([]*types.SessionListItem)
+	require.True(t, ok)
+	require.Len(t, items, 1)
+	require.Equal(t, aliceSession.ID, items[0].ID)
+
+	// Counts follow the same scope, so the sidebar cannot leak row counts.
+	total, err := svc.CountSessionsBySource(aliceCtx, &types.SessionListQuery{Source: "feishu"})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+
+	carolCtx := testChannelSessionContext(1, "carol", types.TenantRoleAdmin, false)
+	total, err = svc.CountSessionsBySource(carolCtx, &types.SessionListQuery{Source: "feishu"})
+	require.NoError(t, err)
+	require.EqualValues(t, 0, total)
+
+	// System administrators keep the tenant-wide view.
+	sysCtx := testChannelSessionContext(1, "root", types.TenantRoleAdmin, true)
+	res, err = svc.ListSessions(sysCtx, &types.SessionListQuery{Source: "feishu", Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	require.EqualValues(t, 2, res.Total)
+}
+
+func TestGetSessionHidesOtherBindersChannelSession(t *testing.T) {
+	svc, db := newTestSessionService(t)
+	require.NoError(t, db.Create(&testListSessionsIMChannel{ID: "ch-alice", TenantID: 1, BoundUserID: "alice"}).Error)
+	aliceSession := seedBoundIMSession(t, db, 1, "alice", "ch-alice")
+
+	bobCtx := testChannelSessionContext(1, "bob", types.TenantRoleAdmin, false)
+	_, err := svc.GetSession(bobCtx, aliceSession.ID)
+	require.ErrorIs(t, err, apperrors.ErrSessionNotFound)
+
+	aliceCtx := testChannelSessionContext(1, "alice", types.TenantRoleViewer, false)
+	got, err := svc.GetSession(aliceCtx, aliceSession.ID)
+	require.NoError(t, err)
+	require.Equal(t, aliceSession.ID, got.ID)
+
+	sysCtx := testChannelSessionContext(1, "root", types.TenantRoleAdmin, true)
+	_, err = svc.GetSession(sysCtx, aliceSession.ID)
+	require.NoError(t, err)
 }

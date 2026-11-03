@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS im_channel_sessions (
     agent_id VARCHAR(64),
     im_channel_id VARCHAR(64)
 );
+CREATE TABLE IF NOT EXISTS im_channels (
+    id VARCHAR(36) PRIMARY KEY,
+    bound_user_id VARCHAR(36) NOT NULL DEFAULT ''
+);
 `
 
 func setupLikeEscapeTestDB(t *testing.T) *gorm.DB {

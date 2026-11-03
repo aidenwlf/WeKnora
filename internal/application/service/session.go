@@ -46,14 +46,32 @@ func loadSessionForManage(
 	if err != nil {
 		return nil, err
 	}
-	imPlatform, err := repo.GetIMPlatform(ctx, tenantID, sessionID)
+	imPlatform, boundUserID, err := repo.GetIMOrigin(ctx, tenantID, sessionID)
 	if err != nil {
 		return nil, err
 	}
 	if !types.SessionRequiresAdminConsoleRead(session, imPlatform) {
 		return nil, apperrors.ErrSessionNotFound
 	}
+	if imPlatform != "" && !imChannelReadableBy(ctx, ownerID, boundUserID) {
+		return nil, apperrors.ErrSessionNotFound
+	}
 	return session, nil
+}
+
+// imChannelReadableBy reports whether the caller may open a session produced by
+// an IM channel. A channel's conversations belong to the user who bound it;
+// system administrators keep the tenant-wide console view. Legacy channels with
+// no binding keep the historical Admin+ rule.
+func imChannelReadableBy(ctx context.Context, ownerID, boundUserID string) bool {
+	boundUserID = strings.TrimSpace(boundUserID)
+	if boundUserID == "" {
+		return true
+	}
+	if types.IsSystemAdminFromContext(ctx) {
+		return true
+	}
+	return strings.TrimSpace(ownerID) == boundUserID
 }
 
 // runtimeMayBypassAdminConsoleRead reports whether a non-admin caller on the
@@ -107,8 +125,14 @@ func loadSessionForRead(
 
 	session, err := repo.Get(ctx, tenantID, ownerID, sessionID)
 	if err == nil {
-		imPlatform, _ := repo.GetIMPlatform(ctx, tenantID, sessionID)
-		if types.SessionRequiresAdminConsoleRead(session, imPlatform) &&
+		imPlatform, boundUserID, _ := repo.GetIMOrigin(ctx, tenantID, sessionID)
+		if imPlatform != "" && boundUserID != "" {
+			// A bound channel's conversations belong to its binder; they may
+			// read them at any tenant role. Everyone else needs a system admin.
+			if !imChannelReadableBy(ctx, ownerID, boundUserID) {
+				return nil, apperrors.ErrSessionNotFound
+			}
+		} else if types.SessionRequiresAdminConsoleRead(session, imPlatform) &&
 			!isAdmin &&
 			!runtimeMayBypassAdminConsoleRead(ctx, session, imPlatform) {
 			return nil, apperrors.ErrSessionNotFound
@@ -128,8 +152,11 @@ func loadSessionForRead(
 	if e != nil {
 		return nil, err
 	}
-	imPlatform, _ := repo.GetIMPlatform(ctx, tenantID, sessionID)
+	imPlatform, boundUserID, _ := repo.GetIMOrigin(ctx, tenantID, sessionID)
 	if !types.SessionRequiresAdminConsoleRead(s, imPlatform) {
+		return nil, err
+	}
+	if imPlatform != "" && !imChannelReadableBy(ctx, ownerID, boundUserID) {
 		return nil, err
 	}
 	if imPlatform != "" {
@@ -299,7 +326,7 @@ func (s *sessionService) GetSession(ctx context.Context, id string) (*types.Sess
 	// Best-effort IM origin so the Web console can classify the session's
 	// folder on read; a lookup failure must not fail the detail request.
 	if session.IMPlatform == "" {
-		if platform, pErr := s.sessionRepo.GetIMPlatform(ctx, tenantID, session.ID); pErr == nil {
+		if platform, _, pErr := s.sessionRepo.GetIMOrigin(ctx, tenantID, session.ID); pErr == nil {
 			session.IMPlatform = platform
 		} else {
 			logger.Warnf(ctx, "Failed to resolve IM platform for session %s: %v", session.ID, pErr)
@@ -393,6 +420,17 @@ func (s *sessionService) GetPagedSessionsByTenant(ctx context.Context,
 	return types.NewPageResult(total, pagination, sessions), nil
 }
 
+// isIMSessionSource reports whether a session source filter selects IM
+// platform traffic (as opposed to the web, API-key or embed buckets).
+func isIMSessionSource(source string) bool {
+	src := strings.ToLower(strings.TrimSpace(source))
+	if src == "" || src == types.SessionSourceWeb || src == types.SessionSourceAPI ||
+		src == "embed" || strings.HasPrefix(src, "embed:") {
+		return false
+	}
+	return true
+}
+
 // ListSessions returns a page of sessions with search/source filters, scoped to
 // the current tenant (and user when the caller is an authenticated user).
 func (s *sessionService) ListSessions(
@@ -409,6 +447,8 @@ func (s *sessionService) ListSessions(
 	// traffic. Gate them behind Admin+ and drop the per-user owner scope so an
 	// Owner/admin can observe sessions that are otherwise isolated per key,
 	// visitor, or IM identity; everyone else stays scoped to their own principal.
+	// IM sources are narrower: a channel's conversations belong to the user who
+	// bound it, so only system administrators get the tenant-wide view.
 	if query.Kind == types.SessionKindAssistant {
 		query.UserID = types.SessionOwnerIDFromContext(ctx)
 	} else if types.SessionListSourceRequiresAdmin(query.Source) {
@@ -418,6 +458,9 @@ func (s *sessionService) ListSessions(
 			)
 		}
 		query.UserID = ""
+		if isIMSessionSource(query.Source) && !types.IsSystemAdminFromContext(ctx) {
+			query.IMBoundUserID = types.SessionOwnerIDFromContext(ctx)
+		}
 	} else if uid := types.SessionOwnerIDFromContext(ctx); uid != "" {
 		query.UserID = uid
 	}
@@ -452,6 +495,9 @@ func (s *sessionService) CountSessionsBySource(
 		query.UserID = types.SessionOwnerIDFromContext(ctx)
 	} else if types.SessionListSourceRequiresAdmin(query.Source) {
 		query.UserID = ""
+		if isIMSessionSource(query.Source) && !types.IsSystemAdminFromContext(ctx) {
+			query.IMBoundUserID = types.SessionOwnerIDFromContext(ctx)
+		}
 	} else if uid := types.SessionOwnerIDFromContext(ctx); uid != "" {
 		query.UserID = uid
 	}

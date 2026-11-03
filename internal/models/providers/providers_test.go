@@ -3,6 +3,7 @@ package providers_test
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ var expectedIDs = []string{
 	"minimax", "moonshot", "mimo", "modelscope", "qianfan", "qiniu", "longcat", "lkeap",
 	"openai", "azure_openai", "anthropic", "gemini",
 	"openrouter", "litellm", "requesty", "pinecone",
-	"jina", "nvidia", "novita", "gpustack", "cohere",
+	"jina", "nvidia", "novita", "gpustack", "cohere", "wunoos",
 }
 
 func TestMinimaxOfficialDefaultURLs(t *testing.T) {
@@ -84,8 +85,8 @@ func TestBuiltinDefaultURLsAcrossModelTypes(t *testing.T) {
 }
 
 func TestAllVendorsRegistered(t *testing.T) {
-	if len(expectedIDs) != 30 {
-		t.Fatalf("expected 30 vendor ids in the spec, got %d", len(expectedIDs))
+	if len(expectedIDs) != 31 {
+		t.Fatalf("expected 31 vendor ids in the spec, got %d", len(expectedIDs))
 	}
 	for _, id := range expectedIDs {
 		v, ok := modelruntime.Get(id)
@@ -686,5 +687,38 @@ func TestClaude55Models(t *testing.T) {
 				t.Errorf("anthropic/%s thinking off sent %v, want %v", model, body["thinking"], wantOff)
 			}
 		}
+	}
+}
+
+func TestWunoosProviderDefaultsAndCatalog(t *testing.T) {
+	v, ok := modelruntime.Get(providers.WunoosID)
+	if !ok {
+		t.Fatal("WunoOS provider missing")
+	}
+	if got := v.GetDefaultURL(types.ModelTypeKnowledgeQA); got != providers.WunoosBaseURL {
+		t.Fatalf("KnowledgeQA default = %q, want %q", got, providers.WunoosBaseURL)
+	}
+	resolved, err := modelruntime.Resolve(modelruntime.Ref{
+		Provider: providers.WunoosID,
+		Model:    "deepseek-v4.1-flash",
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if resolved.BaseURL != providers.WunoosBaseURL {
+		t.Fatalf("BaseURL = %q, want %q", resolved.BaseURL, providers.WunoosBaseURL)
+	}
+	caps := resolved.Capabilities()
+	if !caps.Cataloged {
+		t.Fatal("deepseek-v4.1-flash is not cataloged for wunoos")
+	}
+	if caps.ContextWindow != 1000000 || caps.MaxOutputTokens != 384000 {
+		t.Fatalf("limits = %d/%d, want 1000000/384000", caps.ContextWindow, caps.MaxOutputTokens)
+	}
+	if !caps.Reasoning || !slices.Contains(caps.Input, "image") {
+		t.Fatalf("capabilities = %#v, want reasoning + image input", caps)
+	}
+	if caps.ThinkingFormat != string(api.ThinkingFormatThinkingType) {
+		t.Fatalf("ThinkingFormat = %q, want %q", caps.ThinkingFormat, api.ThinkingFormatThinkingType)
 	}
 }

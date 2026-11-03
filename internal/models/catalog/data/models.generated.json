@@ -5897,6 +5897,20 @@
       }
     ],
     "weknoracloud": [],
+    "wunoos": [
+      {
+        "id": "deepseek-v4.1-flash",
+        "name": "DeepSeek V4.1 Flash",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "context_window": 1000000,
+        "max_output_tokens": 384000,
+        "source": "https://wunoai.com"
+      }
+    ],
     "zhipu": [
       {
         "id": "glm-5.3",

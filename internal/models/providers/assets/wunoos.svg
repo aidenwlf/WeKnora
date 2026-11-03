@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="WunoOS">
+  <defs>
+    <radialGradient id="sphere" cx="36%" cy="24%" r="86%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.48" stop-color="#f7fcff"/>
+      <stop offset="0.78" stop-color="#ddf4ff"/>
+      <stop offset="1" stop-color="#b9e6fb"/>
+    </radialGradient>
+    <radialGradient id="sphereShade" cx="62%" cy="78%" r="64%">
+      <stop offset="0" stop-color="#6fd7ff" stop-opacity="0.26"/>
+      <stop offset="0.7" stop-color="#6fd7ff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#6fd7ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="wave" x1="0" y1="0.1" x2="1" y2="0.8">
+      <stop offset="0" stop-color="#075cff"/>
+      <stop offset="0.3" stop-color="#0a83ff"/>
+      <stop offset="0.58" stop-color="#33c9ff"/>
+      <stop offset="0.78" stop-color="#b9f6ff"/>
+      <stop offset="1" stop-color="#43b9ff"/>
+    </linearGradient>
+    <linearGradient id="lowerWave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c8f3ff" stop-opacity="0.85"/>
+      <stop offset="0.55" stop-color="#8de6ff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#b7f4ff" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#bfeeff" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#6ccfff" stop-opacity="0.8"/>
+    </linearGradient>
+    <filter id="softBlur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="smallBlur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+    <filter id="shadowBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <clipPath id="sphereClip">
+      <circle cx="256" cy="256" r="210"/>
+    </clipPath>
+  </defs>
+
+  <ellipse cx="256" cy="478" rx="122" ry="16" fill="#8ed9f8" opacity="0.22" filter="url(#shadowBlur)"/>
+
+  <circle cx="256" cy="256" r="210" fill="url(#sphere)" stroke="url(#rim)" stroke-width="3"/>
+  <circle cx="256" cy="256" r="210" fill="url(#sphereShade)"/>
+
+  <g clip-path="url(#sphereClip)">
+    <path d="M-20 310 C70 246 148 238 232 292 C314 346 388 355 540 278 L540 540 L-20 540 Z"
+          fill="#c8f1ff" opacity="0.42"/>
+    <path d="M-20 350 C90 294 170 286 246 326 C326 368 404 372 540 318 L540 540 L-20 540 Z"
+          fill="#83ddff" opacity="0.16"/>
+
+    <path d="M-26 304 C64 242 142 232 228 282 C310 330 388 348 544 272 L544 330
+             C390 410 306 388 224 344 C140 298 68 306 -26 366 Z"
+          fill="url(#wave)"/>
+    <path d="M-16 300 C70 244 146 236 226 282 C308 330 390 346 536 276"
+          fill="none" stroke="#e9feff" stroke-width="9" stroke-linecap="round" opacity="0.92"/>
+    <path d="M-10 366 C80 306 160 300 242 340 C322 380 398 384 532 326"
+          fill="none" stroke="url(#lowerWave)" stroke-width="26" stroke-linecap="round" opacity="0.55"/>
+
+    <ellipse cx="176" cy="142" rx="76" ry="44" fill="#ffffff" opacity="0.58"
+             transform="rotate(-24 176 142)" filter="url(#softBlur)"/>
+    <path d="M124 150 C154 104 206 78 264 78" fill="none" stroke="#ffffff" stroke-width="13"
+          stroke-linecap="round" opacity="0.72" filter="url(#smallBlur)"/>
+    <path d="M390 110 C446 160 458 238 432 300" fill="none" stroke="#ffffff" stroke-width="8"
+          stroke-linecap="round" opacity="0.5" filter="url(#smallBlur)"/>
+    <ellipse cx="324" cy="384" rx="86" ry="24" fill="#ffffff" opacity="0.18"
+             transform="rotate(-12 324 384)" filter="url(#softBlur)"/>
+  </g>
+
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+  <circle cx="256" cy="256" r="206" fill="none" stroke="#9fe4ff" stroke-width="1.5" opacity="0.55"/>
+</svg>

@@ -8006,6 +8006,8 @@ export default {
       yunzhijia: 'Yunzhijia',
       addChannel: 'チャネルを追加',
       channelsTitle: 'IMチャネル',
+      boundUser: 'バインド: {name}',
+      boundUserUnknown: '不明なユーザー',
       disabled: '無効',
       editChannel: 'チャネルを編集',
       deleteConfirm: 'このチャネルを削除してもよろしいですか？この操作は取り消せません。',

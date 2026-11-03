@@ -1655,6 +1655,8 @@ export default {
       yunzhijia: 'Yunzhijia',
       addChannel: 'Добавить канал',
       channelsTitle: 'IM-каналы',
+      boundUser: 'Привязка: {name}',
+      boundUserUnknown: 'Неизвестный пользователь',
       disabled: 'Отключено',
       editChannel: 'Редактировать канал',
       deleteConfirm: 'Вы уверены, что хотите удалить этот канал? Это действие не может быть отменено.',

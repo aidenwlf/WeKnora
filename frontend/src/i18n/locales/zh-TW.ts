@@ -1657,6 +1657,8 @@ export default {
       yunzhijia: '雲之家',
       addChannel: '新增通路',
       channelsTitle: 'IM 通路',
+      boundUser: '綁定人：{name}',
+      boundUserUnknown: '未知使用者',
       disabled: '已停用',
       editChannel: '編輯通路',
       deleteConfirm: '確定刪除該通路？刪除後無法復原。',

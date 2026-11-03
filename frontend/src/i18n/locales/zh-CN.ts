@@ -1657,6 +1657,8 @@ export default {
       yunzhijia: '云之家',
       addChannel: '添加渠道',
       channelsTitle: 'IM 渠道',
+      boundUser: '绑定人：{name}',
+      boundUserUnknown: '未知用户',
       disabled: '已停用',
       editChannel: '编辑渠道',
       deleteConfirm: '确定删除该渠道？删除后无法恢复。',

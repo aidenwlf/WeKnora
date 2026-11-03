@@ -37,6 +37,9 @@ type IMChannel struct {
 	// MCP OAuth tokens and tenant role). Empty keeps the legacy synthetic
 	// system-<tenant> identity and per-IM-user OAuth principal.
 	BoundUserID string `json:"bound_user_id" gorm:"type:varchar(36);not null;default:''"`
+	// BoundUserName is the display name resolved for API responses; it is never
+	// persisted on the channel row.
+	BoundUserName string `json:"bound_user_name,omitempty" gorm:"-"`
 }
 
 func (IMChannel) TableName() string {
@@ -60,6 +63,7 @@ type IMChannelSummary struct {
 	BotIdentity           string    `json:"bot_identity"`
 	SessionMode           string    `json:"session_mode"`
 	BoundUserID           string    `json:"bound_user_id"`
+	BoundUserName         string    `json:"bound_user_name,omitempty"`
 	CredentialsConfigured bool      `json:"credentials_configured"`
 	CreatedAt             time.Time `json:"created_at"`
 	UpdatedAt             time.Time `json:"updated_at"`
@@ -81,6 +85,7 @@ func SummarizeIMChannel(ch IMChannel) IMChannelSummary {
 		BotIdentity:           ch.BotIdentity,
 		SessionMode:           ch.SessionMode,
 		BoundUserID:           ch.BoundUserID,
+		BoundUserName:         ch.BoundUserName,
 		CredentialsConfigured: imCredentialsConfigured(ch.Credentials),
 		CreatedAt:             ch.CreatedAt,
 		UpdatedAt:             ch.UpdatedAt,

@@ -359,6 +359,8 @@ export interface IMChannel {
   session_mode?: 'user' | 'thread';
   knowledge_base_id?: string;
   credentials: Record<string, any>;
+  bound_user_id?: string;
+  bound_user_name?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -382,6 +384,8 @@ export interface IMChannelOverview {
   locale?: IMChannel['locale'];
   session_mode?: IMChannel['session_mode'];
   bot_identity: string;
+  bound_user_id?: string;
+  bound_user_name?: string;
   created_at: string;
   updated_at: string;
 }

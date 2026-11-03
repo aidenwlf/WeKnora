@@ -3269,13 +3269,51 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 // ── CRUD operations for IM channels ──
 
 // ListChannelsByAgent returns all channels for a given agent within a tenant.
-func (s *Service) ListChannelsByAgent(agentID string, tenantID uint64) ([]IMChannel, error) {
+func (s *Service) ListChannelsByAgent(ctx context.Context, agentID string, tenantID uint64) ([]IMChannel, error) {
 	var channels []IMChannel
 	if err := s.db.Where("agent_id = ? AND tenant_id = ? AND deleted_at IS NULL", agentID, tenantID).
 		Order("created_at DESC").Find(&channels).Error; err != nil {
 		return nil, err
 	}
+	s.fillBoundUserNames(ctx, channels)
 	return channels, nil
+}
+
+// fillBoundUserNames resolves the display name for each channel's bound user.
+// Best-effort: a lookup failure leaves the name empty and the API exposes the
+// id, so a list request never fails because a user row is unavailable.
+func (s *Service) fillBoundUserNames(ctx context.Context, channels []IMChannel) {
+	ids := make([]string, 0, len(channels))
+	seen := make(map[string]bool, len(channels))
+	for i := range channels {
+		id := strings.TrimSpace(channels[i].BoundUserID)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	var rows []struct {
+		ID       string
+		Username string
+	}
+	if err := s.db.WithContext(ctx).Table("users").
+		Select("id, username").
+		Where("id IN ?", ids).
+		Scan(&rows).Error; err != nil {
+		logger.Warnf(ctx, "[IM] Failed to resolve bound user names: %v", err)
+		return
+	}
+	names := make(map[string]string, len(rows))
+	for _, row := range rows {
+		names[row.ID] = row.Username
+	}
+	for i := range channels {
+		channels[i].BoundUserName = names[channels[i].BoundUserID]
+	}
 }
 
 // ChannelWithAgent augments an IMChannel summary with its owning agent's display name.
@@ -3283,20 +3321,22 @@ func (s *Service) ListChannelsByAgent(agentID string, tenantID uint64) ([]IMChan
 // tenant-scoped list endpoint; callers that need credentials must use the
 // per-agent endpoint which enforces the same tenant scope anyway.
 type ChannelWithAgent struct {
-	ID          string    `json:"id"`
-	TenantID    uint64    `json:"tenant_id"`
-	AgentID     string    `json:"agent_id"`
-	AgentName   string    `json:"agent_name"`
-	Platform    string    `json:"platform"`
-	Name        string    `json:"name"`
-	Enabled     bool      `json:"enabled"`
-	Mode        string    `json:"mode"`
-	OutputMode  string    `json:"output_mode"`
-	Locale      string    `json:"locale"`
-	SessionMode string    `json:"session_mode"`
-	BotIdentity string    `json:"bot_identity"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	TenantID      uint64    `json:"tenant_id"`
+	AgentID       string    `json:"agent_id"`
+	AgentName     string    `json:"agent_name"`
+	Platform      string    `json:"platform"`
+	Name          string    `json:"name"`
+	Enabled       bool      `json:"enabled"`
+	Mode          string    `json:"mode"`
+	OutputMode    string    `json:"output_mode"`
+	Locale        string    `json:"locale"`
+	SessionMode   string    `json:"session_mode"`
+	BotIdentity   string    `json:"bot_identity"`
+	BoundUserID   string    `json:"bound_user_id"`
+	BoundUserName string    `json:"bound_user_name"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // ListChannelsByTenant returns all non-deleted IM channels in the given tenant,
@@ -3311,9 +3351,13 @@ func (s *Service) ListChannelsByTenant(ctx context.Context, tenantID uint64) ([]
 		Select(`c.id, c.tenant_id, c.agent_id,
                 COALESCE(a.name, '') AS agent_name,
                 c.platform, c.name, c.enabled, c.mode, c.output_mode, c.locale,
-                c.session_mode, c.bot_identity, c.created_at, c.updated_at`).
+                c.session_mode, c.bot_identity, c.bound_user_id,
+                COALESCE(u.username, '') AS bound_user_name,
+                c.created_at, c.updated_at`).
 		Joins(`LEFT JOIN custom_agents AS a
                ON a.id = c.agent_id AND a.tenant_id = c.tenant_id AND a.deleted_at IS NULL`).
+		Joins(`LEFT JOIN users AS u
+               ON u.id = c.bound_user_id AND u.deleted_at IS NULL`).
 		Where("c.tenant_id = ? AND c.deleted_at IS NULL", tenantID)
 	if len(builtinIDs) > 0 {
 		q = q.Where("a.id IS NOT NULL OR c.agent_id IN ?", builtinIDs)

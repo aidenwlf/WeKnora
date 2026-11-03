@@ -159,7 +159,7 @@ func (h *IMHandler) ListIMChannels(c *gin.Context) {
 		return
 	}
 
-	channels, err := h.imService.ListChannelsByAgent(agentID, tenantID)
+	channels, err := h.imService.ListChannelsByAgent(c.Request.Context(), agentID, tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list channels"})
 		return

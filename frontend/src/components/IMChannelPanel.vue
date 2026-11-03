@@ -27,8 +27,8 @@
                   {{ $t('agentEditor.im.disabled') }}
                 </t-tag>
               </div>
-              <span v-if="agentDisplayName(channel)" class="channel-card__agent-name">
-                {{ agentDisplayName(channel) }}
+              <span v-if="agentDisplayName(channel) || channelBoundUserName(channel)" class="channel-card__agent-name">
+                {{ agentDisplayName(channel) }}<template v-if="channelBoundUserName(channel)">{{ agentDisplayName(channel) ? ' · ' : '' }}{{ $t('agentEditor.im.boundUser', { name: channelBoundUserName(channel) }) }}</template>
               </span>
             </div>
             <div v-if="authStore.hasRole('admin')" class="channel-card__actions" @click.stop>
@@ -771,6 +771,12 @@ function handleChannelMenuClick(
 
 function agentDisplayName(channel: IMChannel | IMChannelOverview): string {
   return agentForChannel(channel)?.name || '';
+}
+
+function channelBoundUserName(channel: IMChannel | IMChannelOverview): string {
+  const name = (channel as IMChannelOverview).bound_user_name;
+  if (name) return name;
+  return (channel as IMChannelOverview).bound_user_id ? t('agentEditor.im.boundUserUnknown') : '';
 }
 
 function agentForChannel(channel: IMChannel | IMChannelOverview): CustomAgent | undefined {

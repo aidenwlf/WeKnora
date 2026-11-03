@@ -36,7 +36,7 @@ API key：`manage_channels`/full。IM 渠道携带外部 bot 凭证：列表 Vie
 | `credentials` | object | 否 | 平台凭证 |
 | `enabled` | bool | 否 | 默认 true |
 
-响应：200 `{"data":{IMChannel}}`；同渠道 bot 已存在返回 409。
+响应：200 `{"data":{IMChannel}}`，包含 `bound_user_id` / `bound_user_name`（绑定用户）；同渠道 bot 已存在返回 409。
 
 创建者（当前登录用户）自动成为渠道的**绑定用户**（`bound_user_id`）：该渠道的消息以绑定用户的 TenantRole 与 MCP OAuth token 运行。API Key 调用不绑定用户。
 
@@ -49,7 +49,7 @@ curl -X POST $BASE/api/v1/agents/agent-1/im-channels -H "Authorization: Bearer $
 
 用途：某 Agent 的 IM 渠道列表（摘要）。权限：Viewer+。
 
-响应：200 `{"data":[IMChannel]}`
+响应：200 `{"data":[IMChannel]}`，每项包含 `bound_user_id` / `bound_user_name`（绑定用户）。
 
 ```bash
 curl $BASE/api/v1/agents/agent-1/im-channels -H "Authorization: Bearer $TOKEN"

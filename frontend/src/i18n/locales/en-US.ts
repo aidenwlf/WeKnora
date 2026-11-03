@@ -8006,6 +8006,8 @@ export default {
       yunzhijia: 'Yunzhijia',
       addChannel: 'Add Channel',
       channelsTitle: 'IM Channels',
+      boundUser: 'Bound to {name}',
+      boundUserUnknown: 'Unknown user',
       disabled: 'Disabled',
       editChannel: 'Edit Channel',
       deleteConfirm: 'Are you sure you want to delete this channel? This action cannot be undone.',

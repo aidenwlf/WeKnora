@@ -1655,6 +1655,8 @@ export default {
       yunzhijia: 'Yunzhijia',
       addChannel: '채널 추가',
       channelsTitle: 'IM 채널',
+      boundUser: '바인딩: {name}',
+      boundUserUnknown: '알 수 없는 사용자',
       disabled: '비활성',
       editChannel: '채널 편집',
       deleteConfirm: '이 채널을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',

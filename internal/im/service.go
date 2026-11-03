@@ -2133,6 +2133,7 @@ func (s *Service) executeQARequest(req *qaRequest) {
 		return
 	}
 	s.sendArtifacts(outCtx, req.msg, req.adapter, req.tenant, artifactsOf(assistantMsg))
+	s.sendAnswerImages(outCtx, req.msg, req.adapter, req.tenant, answer, artifactURLSet(artifactsOf(assistantMsg)))
 
 	logger.Infof(ctx, "[IM] Reply sent: channel=%s platform=%s user=%s answer_len=%d",
 		req.channelID, req.msg.Platform, req.msg.UserID, len(answer))
@@ -2198,6 +2199,7 @@ func (s *Service) handleMessageFullOutput(
 
 	if finalizeErr == nil || fallbackErr == nil {
 		s.sendArtifacts(outCtx, msg, adapter, tenant, artifactsOf(assistantMsg))
+		s.sendAnswerImages(outCtx, msg, adapter, tenant, answer, artifactURLSet(artifactsOf(assistantMsg)))
 		logger.Infof(
 			ctx, "[IM] Full-output reply sent: platform=%s user=%s answer_len=%d",
 			msg.Platform, msg.UserID, len(answer),
@@ -3059,6 +3061,7 @@ loop:
 		answer = imNoAnswerFallback
 	}
 
+	s.attachReferencedArtifacts(outCtx, session.ID, assistantMsg, answer)
 	assistantMsg.Content = answer
 	assistantMsg.IsCompleted = true
 	if err := s.messageService.UpdateMessage(outCtx, assistantMsg); err != nil {
@@ -3069,6 +3072,7 @@ loop:
 		return errors.Join(finalizeErr, endErr, fallbackErr)
 	}
 	s.sendArtifacts(outCtx, msg, adapter, tenant, artifactsOf(assistantMsg))
+	s.sendAnswerImages(outCtx, msg, adapter, tenant, answer, artifactURLSet(artifactsOf(assistantMsg)))
 	logger.Infof(ctx, "[IM] Stream reply sent: platform=%s user=%s answer_len=%d", msg.Platform, msg.UserID, len(answer))
 	return endErr
 }
@@ -3090,6 +3094,7 @@ func (s *Service) fallbackNonStream(ctx context.Context, msg *IncomingMessage, s
 		return err
 	}
 	s.sendArtifacts(outCtx, msg, adapter, tenant, artifactsOf(assistantMsg))
+	s.sendAnswerImages(outCtx, msg, adapter, tenant, answer, artifactURLSet(artifactsOf(assistantMsg)))
 	return nil
 }
 
@@ -3281,6 +3286,8 @@ func (s *Service) runQA(ctx context.Context, session *types.Session, query strin
 	if notice := s.buildIMMCPAuthNotice(ctx, authServices); notice != "" {
 		answer = appendIMAuthNotice(answer, notice)
 	}
+
+	s.attachReferencedArtifacts(ctx, session.ID, assistantMsg, answer)
 
 	// Update assistant message with the full answer (including citation tags for web rendering).
 	assistantMsg.Content = answer

@@ -178,6 +178,9 @@ type OutgoingFile struct {
 	FileName    string
 	ContentType string
 	Data        []byte
+	// Image asks adapters that support native images to send this as an image
+	// message instead of a generic file attachment.
+	Image bool
 }
 
 // FileSender is an optional interface that adapters can implement to deliver

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,4 +93,37 @@ func TestSendArtifactsWithoutFileSenderIsNoop(t *testing.T) {
 func timePtr() *time.Time {
 	now := time.Now()
 	return &now
+}
+
+type imageCatalog struct {
+	interfaces.ResourceCatalog
+	resource *types.StoredResource
+}
+
+func (c imageCatalog) ResolvePath(context.Context, string) (string, *types.StoredResource, error) {
+	return c.resource.PhysicalPath, c.resource, nil
+}
+
+func TestSendAnswerImagesUploadsResourceImages(t *testing.T) {
+	png := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+	fileSvc := &artifactFileService{data: map[string][]byte{
+		"local://tenant/1/chart.png": png,
+	}}
+	svc := &Service{
+		defaultFileSvc:  fileSvc,
+		storageResolver: &artifactStorageResolver{svc: fileSvc},
+		resourceCatalog: imageCatalog{resource: &types.StoredResource{
+			TenantID: 1, PhysicalPath: "local://tenant/1/chart.png", OriginalName: "chart.png",
+		}},
+	}
+	adapter := &artifactSendingAdapter{}
+	answer := "see ![chart](resource://abc) and again ![chart](resource://abc)"
+	svc.sendAnswerImages(context.Background(), &IncomingMessage{UserID: "u1"}, adapter, &types.Tenant{ID: 1}, answer, map[string]bool{})
+	if len(adapter.files) != 1 {
+		t.Fatalf("sent images = %d, want 1", len(adapter.files))
+	}
+	file := adapter.files[0]
+	if !file.Image || file.FileName != "chart.png" || !strings.HasPrefix(file.ContentType, "image/") {
+		t.Fatalf("unexpected image: %+v", file)
+	}
 }

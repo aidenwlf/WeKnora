@@ -2,6 +2,7 @@ package im
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/agent/skills"
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -23,6 +24,10 @@ type ArtifactCollector interface {
 		notify func(pending int),
 	) (types.MessageArtifacts, error)
 	BindArtifactsToMessage(ctx context.Context, messageID string, artifacts types.MessageArtifacts)
+	// SessionArtifacts returns every artifact already recorded for the
+	// session, used to re-send a file the current answer names but did not
+	// regenerate.
+	SessionArtifacts(ctx context.Context, sessionID string) types.MessageArtifacts
 }
 
 // collectIMArtifacts drains the turn's sandbox output into persistent storage
@@ -76,4 +81,33 @@ func mergeIMArtifacts(base, add types.MessageArtifacts) types.MessageArtifacts {
 		base = append(base, artifact)
 	}
 	return base
+}
+
+// attachReferencedArtifacts adds session artifacts named by the current
+// answer. A later turn can legitimately reference a file it did not generate
+// (for example "the docx I made earlier"); without this the IM reply names a
+// file that is not actually attached to the message and nothing is sent.
+func (s *Service) attachReferencedArtifacts(ctx context.Context, sessionID string, assistantMsg *types.Message, answer string) {
+	if s == nil || s.artifactCollector == nil || assistantMsg == nil || strings.TrimSpace(answer) == "" {
+		return
+	}
+	known := s.artifactCollector.SessionArtifacts(ctx, sessionID)
+	if len(known) == 0 {
+		return
+	}
+	seen := make(map[string]bool, len(assistantMsg.Artifacts))
+	for _, artifact := range assistantMsg.Artifacts {
+		seen[artifact.URL] = true
+	}
+	for _, artifact := range known {
+		if artifact.Deleted() || artifact.URL == "" || seen[artifact.URL] {
+			continue
+		}
+		if !strings.Contains(answer, artifact.URL) &&
+			(artifact.FileName == "" || !strings.Contains(answer, artifact.FileName)) {
+			continue
+		}
+		seen[artifact.URL] = true
+		assistantMsg.Artifacts = append(assistantMsg.Artifacts, artifact)
+	}
 }

@@ -22,7 +22,10 @@ import (
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
-const wechatMaxFileBytes = 20 << 20
+const (
+	wechatMaxFileBytes  = 20 << 20
+	wechatMaxImageBytes = 10 << 20
+)
 
 // SendFile uploads the artifact to the WeChat CDN and sends it as a FILE item.
 // iLink media uses AES-128-ECB/PKCS7 with a fresh per-file key; the encrypted
@@ -34,8 +37,12 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 	if len(file.Data) == 0 {
 		return fmt.Errorf("cannot send an empty file")
 	}
-	if len(file.Data) > wechatMaxFileBytes {
-		return fmt.Errorf("file exceeds the WeChat %d-byte limit", wechatMaxFileBytes)
+	limit := wechatMaxFileBytes
+	if file.Image {
+		limit = wechatMaxImageBytes
+	}
+	if len(file.Data) > limit {
+		return fmt.Errorf("file exceeds the WeChat %d-byte limit", limit)
 	}
 	contextToken := ""
 	if incoming.Extra != nil {
@@ -59,9 +66,13 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 	cipherSize := ((plaintextSize / aes.BlockSize) + 1) * aes.BlockSize
 	sum := md5.Sum(file.Data)
 
+	mediaType := 3 // FILE
+	if file.Image {
+		mediaType = 1 // IMAGE
+	}
 	uploadResp, err := a.ilinkPostRaw(ctx, "/ilink/bot/getuploadurl", map[string]interface{}{
 		"filekey":       fileKey,
-		"media_type":    3, // FILE
+		"media_type":    mediaType,
 		"to_user_id":    incoming.UserID,
 		"rawsize":       plaintextSize,
 		"rawfilemd5":    hex.EncodeToString(sum[:]),
@@ -103,6 +114,31 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 		return err
 	}
 
+	media := map[string]interface{}{
+		"encrypt_query_param": downloadParam,
+		// File/voice/video/image keys are base64 of the hex string.
+		"aes_key":      base64.StdEncoding.EncodeToString([]byte(aesKeyHex)),
+		"encrypt_type": 1,
+	}
+	var item map[string]interface{}
+	if file.Image {
+		item = map[string]interface{}{
+			"type": 2, // IMAGE
+			"image_item": map[string]interface{}{
+				"media":    media,
+				"mid_size": cipherSize,
+			},
+		}
+	} else {
+		item = map[string]interface{}{
+			"type": 4, // FILE
+			"file_item": map[string]interface{}{
+				"media":     media,
+				"file_name": file.FileName,
+				"len":       strconv.Itoa(plaintextSize),
+			},
+		}
+	}
 	payload := map[string]interface{}{
 		"msg": map[string]interface{}{
 			"from_user_id":  "",
@@ -111,19 +147,7 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 			"message_type":  2,
 			"message_state": 2,
 			"context_token": contextToken,
-			"item_list": []map[string]interface{}{{
-				"type": 4, // FILE
-				"file_item": map[string]interface{}{
-					"media": map[string]interface{}{
-						"encrypt_query_param": downloadParam,
-						// File/voice/video keys are base64 of the hex string.
-						"aes_key":      base64.StdEncoding.EncodeToString([]byte(aesKeyHex)),
-						"encrypt_type": 1,
-					},
-					"file_name": file.FileName,
-					"len":       strconv.Itoa(plaintextSize),
-				},
-			}},
+			"item_list":     []map[string]interface{}{item},
 		},
 		"base_info": newBaseInfo(),
 	}

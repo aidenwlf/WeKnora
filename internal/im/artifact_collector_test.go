@@ -26,6 +26,10 @@ func (f *fakeArtifactCollector) BindArtifactsToMessage(_ context.Context, messag
 	f.messageID = messageID
 }
 
+func (f *fakeArtifactCollector) SessionArtifacts(context.Context, string) types.MessageArtifacts {
+	return f.artifacts
+}
+
 func TestCollectIMArtifactsMergesAndBinds(t *testing.T) {
 	collector := &fakeArtifactCollector{
 		artifacts: types.MessageArtifacts{{URL: "local://tenant/1/report.docx", FileName: "report.docx"}},

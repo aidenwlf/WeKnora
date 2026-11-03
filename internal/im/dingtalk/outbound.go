@@ -17,7 +17,10 @@ import (
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
-const dingtalkMaxFileBytes = 20 << 20
+const (
+	dingtalkMaxFileBytes  = 20 << 20
+	dingtalkMaxImageBytes = 10 << 20
+)
 
 // dingtalkMediaBaseURL is the legacy OpenAPI host used by media/upload.
 // The new api.dingtalk.com token cannot call this endpoint. It is a variable
@@ -34,8 +37,12 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 	if len(file.Data) == 0 {
 		return fmt.Errorf("cannot send an empty file")
 	}
-	if len(file.Data) > dingtalkMaxFileBytes {
-		return fmt.Errorf("file exceeds the DingTalk %d-byte limit", dingtalkMaxFileBytes)
+	limit := int64(dingtalkMaxFileBytes)
+	if file.Image {
+		limit = dingtalkMaxImageBytes
+	}
+	if int64(len(file.Data)) > limit {
+		return fmt.Errorf("file exceeds the DingTalk %d-byte limit", limit)
 	}
 
 	mediaType, msgKey, msgParam, err := a.prepareFileMessage(file)
@@ -99,6 +106,9 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 
 func (a *Adapter) prepareFileMessage(file *im.OutgoingFile) (mediaType, msgKey string, msgParam map[string]interface{}, err error) {
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(file.FileName)), ".")
+	if file.Image {
+		return "image", "sampleImageMsg", map[string]interface{}{}, nil
+	}
 	switch ext {
 	case "jpg", "jpeg", "png", "gif", "bmp":
 		return "image", "sampleImageMsg", map[string]interface{}{}, nil

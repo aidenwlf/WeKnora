@@ -17,6 +17,7 @@ const (
 	wecomUploadChunkSize = 512 * 1024
 	wecomMaxUploadChunks = 100
 	wecomMaxFileBytes    = 20 << 20
+	wecomMaxImageBytes   = 10 << 20
 	wecomRequestTimeout  = 30 * time.Second
 )
 
@@ -91,7 +92,7 @@ func (c *LongConnClient) request(ctx context.Context, cmd string, body interface
 
 // uploadMedia runs the aibot three-step temporary-media upload (init, chunks,
 // finish) and returns the media_id used by a media reply.
-func (c *LongConnClient) uploadMedia(ctx context.Context, filename string, data []byte) (string, error) {
+func (c *LongConnClient) uploadMedia(ctx context.Context, mediaType, filename string, data []byte) (string, error) {
 	if len(data) == 0 {
 		return "", fmt.Errorf("cannot upload an empty file")
 	}
@@ -104,7 +105,7 @@ func (c *LongConnClient) uploadMedia(ctx context.Context, filename string, data 
 	}
 
 	initResp, err := c.request(ctx, "aibot_upload_media_init", map[string]interface{}{
-		"type":         "file",
+		"type":         mediaType,
 		"filename":     filename,
 		"total_size":   len(data),
 		"total_chunks": totalChunks,
@@ -173,18 +174,32 @@ func (c *LongConnClient) SendFile(ctx context.Context, incoming *im.IncomingMess
 		return fmt.Errorf("cannot resolve WeCom chat id")
 	}
 
-	mediaID, err := c.uploadMedia(ctx, file.FileName, file.Data)
+	mediaType := "file"
+	msgType := "file"
+	payloadKey := "file"
+	limit := wecomMaxFileBytes
+	if file.Image {
+		mediaType = "image"
+		msgType = "image"
+		payloadKey = "image"
+		limit = wecomMaxImageBytes
+	}
+	if len(file.Data) > limit {
+		return fmt.Errorf("file exceeds the WeCom %d-byte %s limit", limit, mediaType)
+	}
+
+	mediaID, err := c.uploadMedia(ctx, mediaType, file.FileName, file.Data)
 	if err != nil {
 		return fmt.Errorf("upload WeCom media: %w", err)
 	}
 
 	if _, err := c.request(ctx, "aibot_send_msg", map[string]interface{}{
-		"chatid":  chatID,
-		"msgtype": "file",
-		"file":    map[string]string{"media_id": mediaID},
+		"chatid":   chatID,
+		"msgtype":  msgType,
+		payloadKey: map[string]string{"media_id": mediaID},
 	}); err != nil {
-		return fmt.Errorf("send WeCom file message: %w", err)
+		return fmt.Errorf("send WeCom %s message: %w", msgType, err)
 	}
-	logger.Infof(ctx, "[WeCom] File message sent: chat=%s name=%s size=%d", chatID, file.FileName, len(file.Data))
+	logger.Infof(ctx, "[WeCom] %s message sent: chat=%s name=%s size=%d", msgType, chatID, file.FileName, len(file.Data))
 	return nil
 }

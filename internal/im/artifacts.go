@@ -159,7 +159,7 @@ func imContentType(name string) string {
 }
 
 // maxIMAnswerImages bounds how many images one answer can push to a chat.
-const maxIMAnswerImages = 6
+const maxIMAnswerImages = 9
 
 // maxIMImageBytes is the smallest native image limit across WeCom, DingTalk
 // and WeChat (10 MiB for WeCom).

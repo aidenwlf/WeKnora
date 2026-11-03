@@ -14,7 +14,6 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/im"
 	"github.com/Tencent/WeKnora/internal/logger"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
 const (
@@ -66,23 +65,6 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 		return fmt.Errorf("marshal file message: %w", err)
 	}
 
-	// The stream callback carries a sessionWebhook, which is the cheapest path
-	// and works without the app's robot OpenAPI send permission. Custom
-	// webhooks do not accept file messages, but the session endpoint does.
-	if webhook := strings.TrimSpace(incoming.Extra["session_webhook"]); webhook != "" {
-		payload := map[string]interface{}{"msgtype": "file", "file": map[string]string{"media_id": mediaID}}
-		if msgKey == "sampleImageMsg" {
-			payload = map[string]interface{}{"msgtype": "image", "image": map[string]string{"media_id": mediaID}}
-		}
-		if err := a.postSessionWebhookPayload(ctx, webhook, payload); err == nil {
-			logger.Infof(ctx, "[DingTalk] File message sent via sessionWebhook: user=%s name=%s size=%d",
-				incoming.UserID, file.FileName, len(file.Data))
-			return nil
-		} else {
-			logger.Debugf(ctx, "[DingTalk] sessionWebhook file send failed, falling back to OpenAPI: %v", err)
-		}
-	}
-
 	body := map[string]interface{}{
 		"robotCode": a.clientID,
 		"msgKey":    msgKey,
@@ -98,9 +80,9 @@ func (a *Adapter) SendFile(ctx context.Context, incoming *im.IncomingMessage, fi
 		body["userIds"] = []string{incoming.UserID}
 	}
 	if _, err := a.dingtalkAPI(ctx, http.MethodPost, path, body); err != nil {
-		return fmt.Errorf("send DingTalk file message: %w", err)
+		return fmt.Errorf("send DingTalk file message via OpenAPI: %w", err)
 	}
-	logger.Infof(ctx, "[DingTalk] File message sent: user=%s name=%s size=%d", incoming.UserID, file.FileName, len(file.Data))
+	logger.Infof(ctx, "[DingTalk] File message sent via OpenAPI: user=%s name=%s size=%d", incoming.UserID, file.FileName, len(file.Data))
 	return nil
 }
 
@@ -216,37 +198,4 @@ func (a *Adapter) uploadMedia(ctx context.Context, mediaType, filename string, d
 		return "", fmt.Errorf("dingtalk media upload returned no media_id")
 	}
 	return result.MediaID, nil
-}
-
-// postSessionWebhookPayload POSTs a robot payload to the per-message session
-// webhook. The URL is validated with the same host/path/SSRF rules as text
-// replies, so a forged callback cannot turn this into an open proxy.
-func (a *Adapter) postSessionWebhookPayload(ctx context.Context, webhookURL string, payload interface{}) error {
-	u, err := url.Parse(webhookURL)
-	if err != nil || u.Scheme != "https" || u.Host != "oapi.dingtalk.com" ||
-		u.User != nil || u.Path != "/robot/sendBySession" {
-		return fmt.Errorf("untrusted dingtalk session webhook")
-	}
-	if err := secutils.ValidateURLForSSRF(webhookURL); err != nil {
-		return fmt.Errorf("dingtalk sessionWebhook rejected by SSRF policy: %w", err)
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal session webhook payload: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("create session webhook request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("send session webhook file: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := im.ReadIMResponse(resp.Body)
-		return fmt.Errorf("dingtalk sessionWebhook returned %d: %s", resp.StatusCode, string(respBody))
-	}
-	return nil
 }

@@ -23,6 +23,7 @@ func TestSendFileUploadsEncryptedMediaAndSendsFileItem(t *testing.T) {
 	var (
 		uploadedCipher []byte
 		sent           map[string]interface{}
+		mediaType      float64
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +31,7 @@ func TestSendFileUploadsEncryptedMediaAndSendsFileItem(t *testing.T) {
 		case "/ilink/bot/getuploadurl":
 			var body map[string]interface{}
 			_ = json.NewDecoder(r.Body).Decode(&body)
+			mediaType, _ = body["media_type"].(float64)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"upload_full_url": serverURL(r) + "/upload",
 			})
@@ -95,6 +97,26 @@ func TestSendFileUploadsEncryptedMediaAndSendsFileItem(t *testing.T) {
 	pad := int(plain[len(plain)-1])
 	if string(plain[:len(plain)-pad]) != "docx bytes" {
 		t.Fatalf("decrypted = %q", plain[:len(plain)-pad])
+	}
+
+	uploadedCipher = nil
+	if err := adapter.SendFile(context.Background(),
+		&im.IncomingMessage{UserID: "user-1", Extra: map[string]string{"context_token": "ctx"}},
+		&im.OutgoingFile{FileName: "chart.png", Data: []byte("png"), Image: true},
+	); err != nil {
+		t.Fatalf("SendFile image: %v", err)
+	}
+	if mediaType != 1 {
+		t.Fatalf("image media_type = %v, want 1", mediaType)
+	}
+	msg = sent["msg"].(map[string]interface{})
+	items = msg["item_list"].([]interface{})
+	item = items[0].(map[string]interface{})
+	if item["type"].(float64) != 2 {
+		t.Fatalf("image item type = %v, want 2", item["type"])
+	}
+	if _, ok := item["image_item"]; !ok {
+		t.Fatalf("image item = %#v", item)
 	}
 }
 

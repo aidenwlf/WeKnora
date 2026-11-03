@@ -20,6 +20,7 @@ func TestWebhookSendFileUploadsAndSendsFileMessage(t *testing.T) {
 
 	var uploaded []byte
 	var sent map[string]interface{}
+	var mediaType string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -28,8 +29,9 @@ func TestWebhookSendFileUploadsAndSendsFileMessage(t *testing.T) {
 				"errcode": 0, "access_token": "token", "expires_in": 7200,
 			})
 		case "/cgi-bin/media/upload":
-			if got := r.URL.Query().Get("type"); got != "file" {
-				t.Errorf("media type = %q, want file", got)
+			mediaType = r.URL.Query().Get("type")
+			if mediaType != "file" && mediaType != "image" {
+				t.Errorf("media type = %q, want file or image", mediaType)
 			}
 			file, _, err := r.FormFile("media")
 			if err != nil {
@@ -75,6 +77,20 @@ func TestWebhookSendFileUploadsAndSendsFileMessage(t *testing.T) {
 	}
 	if sent["touser"] != "user-1" {
 		t.Fatalf("touser = %v", sent["touser"])
+	}
+
+	if err := adapter.SendFile(context.Background(),
+		&im.IncomingMessage{UserID: "user-1", ChatType: im.ChatTypeDirect},
+		&im.OutgoingFile{FileName: "chart.png", Data: []byte("png"), Image: true},
+	); err != nil {
+		t.Fatalf("SendFile image: %v", err)
+	}
+	if mediaType != "image" || sent["msgtype"] != "image" {
+		t.Fatalf("image media type = %q msgtype = %v", mediaType, sent["msgtype"])
+	}
+	image, _ := sent["image"].(map[string]interface{})
+	if image["media_id"] != "media-1" {
+		t.Fatalf("image media_id = %v", image["media_id"])
 	}
 }
 

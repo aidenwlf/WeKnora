@@ -19,6 +19,7 @@ func TestSendFileUploadsAndPostsSampleFile(t *testing.T) {
 
 	var uploaded []byte
 	var sent map[string]interface{}
+	var mediaType string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -27,8 +28,9 @@ func TestSendFileUploadsAndPostsSampleFile(t *testing.T) {
 		case "/gettoken":
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"errcode": 0, "access_token": "legacy-token", "expires_in": 7200})
 		case "/media/upload":
-			if got := r.URL.Query().Get("type"); got != "file" {
-				t.Errorf("media type = %q, want file", got)
+			mediaType = r.URL.Query().Get("type")
+			if mediaType != "file" && mediaType != "image" {
+				t.Errorf("media type = %q, want file or image", mediaType)
 			}
 			file, _, err := r.FormFile("media")
 			if err != nil {
@@ -79,5 +81,22 @@ func TestSendFileUploadsAndPostsSampleFile(t *testing.T) {
 	users, _ := sent["userIds"].([]interface{})
 	if len(users) != 1 || users[0] != "user-1" {
 		t.Fatalf("userIds = %#v", sent["userIds"])
+	}
+
+	if err := adapter.SendFile(context.Background(),
+		&im.IncomingMessage{UserID: "user-1", ChatType: im.ChatTypeDirect},
+		&im.OutgoingFile{FileName: "chart.png", Data: []byte("png"), Image: true},
+	); err != nil {
+		t.Fatalf("SendFile image: %v", err)
+	}
+	if mediaType != "image" || sent["msgKey"] != "sampleImageMsg" {
+		t.Fatalf("image media type = %q msgKey = %v", mediaType, sent["msgKey"])
+	}
+	var imageParams map[string]interface{}
+	if err := json.Unmarshal([]byte(sent["msgParam"].(string)), &imageParams); err != nil {
+		t.Fatalf("decode image msgParam: %v", err)
+	}
+	if imageParams["photoURL"] != "media-1" {
+		t.Fatalf("image msgParam = %#v", imageParams)
 	}
 }

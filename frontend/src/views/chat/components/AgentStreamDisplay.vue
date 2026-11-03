@@ -758,6 +758,13 @@
     :artifacts="liveArtifacts"
     :preview-index="artifactPreviewIndex"
   />
+  <AddArtifactToKnowledgeDialog
+    v-model:visible="addToKbVisible"
+    :session-id="sessionIdForArtifacts"
+    :message-id="messageIdForArtifacts"
+    :artifact-index="addToKbIndex"
+    :file-name="addToKbFileName"
+  />
 </template>
 
 <script setup lang="ts">
@@ -794,6 +801,7 @@ import ChatRequestInfoButton from '@/components/ChatRequestInfoButton.vue';
 import ChatCitationFloat from '@/components/ChatCitationFloat.vue';
 import picturePreview from '@/components/picture-preview.vue';
 import ChatArtifactsDrawer from './ChatArtifactsDrawer.vue';
+import AddArtifactToKnowledgeDialog from './AddArtifactToKnowledgeDialog.vue';
 import { isCollectingSkillArtifacts } from '@/utils/skillArtifacts';
 import { useArtifactArriveMotion } from '@/composables/useArtifactArriveMotion';
 import { useChatSandboxPanel } from '@/composables/useChatSandboxPanel';
@@ -819,6 +827,8 @@ import { hydrateProtectedFileImages, sanitizeMarkdownHTML } from '@/utils/securi
 import { useProtectedImageRecovery } from '@/composables/useProtectedImageRecovery';
 import {
   artifactIndexFromEventTarget,
+  artifactKnowledgeIndexFromEventTarget,
+  artifactNameFromEventTarget,
   hydrateArtifactImages,
   renderArtifactReference,
   installArtifactLinkRenderer,
@@ -1358,6 +1368,7 @@ const artifactRefLabels = computed(() => ({
   previewHint: t('agent.artifactDrawer.inlinePreviewHint'),
   missingHint: t('agent.artifactDrawer.inlineMissing'),
   deletedHint: t('agent.artifactDrawer.inlineDeleted'),
+  addToKnowledge: t('agent.artifactDrawer.addToKnowledge'),
 }));
 
 const {
@@ -2650,9 +2661,29 @@ const getKbIdForWiki = (slug: string): string => {
   return '';
 };
 
+const addToKbVisible = ref(false);
+const addToKbIndex = ref(0);
+const addToKbFileName = ref('');
+
+function openAddToKnowledgeFromCard(index: number, fileName: string) {
+  if (!messageIdForArtifacts.value) return;
+  addToKbIndex.value = index;
+  addToKbFileName.value = fileName || '';
+  addToKbVisible.value = true;
+}
+
 const onRootClick = (e: Event) => {
   const target = e.target as HTMLElement;
   if (!target) return;
+
+  // Inline artifact card's knowledge-base shortcut.
+  const kbIndex = artifactKnowledgeIndexFromEventTarget(target);
+  if (kbIndex !== null) {
+    e.preventDefault();
+    e.stopPropagation();
+    openAddToKnowledgeFromCard(kbIndex, artifactNameFromEventTarget(target));
+    return;
+  }
 
   // Inline artifact card -> open the drawer straight on that file's preview.
   const artifactIndex = artifactIndexFromEventTarget(target);
@@ -2760,6 +2791,15 @@ const onRootClick = (e: Event) => {
 const onRootKeydown = (e: KeyboardEvent) => {
   const target = e.target as HTMLElement;
   if (!target) return;
+
+  const kbIndex = artifactKnowledgeIndexFromEventTarget(target);
+  if (kbIndex !== null) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openAddToKnowledgeFromCard(kbIndex, artifactNameFromEventTarget(target));
+    }
+    return;
+  }
 
   const artifactIndex = artifactIndexFromEventTarget(target);
   if (artifactIndex !== null) {

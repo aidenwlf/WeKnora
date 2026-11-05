@@ -396,6 +396,9 @@ func compactToolSummary(success bool, errMsg string, data map[string]interface{}
 		if parsed > 0 {
 			return fmt.Sprintf("Parsed %d attachment(s)", parsed)
 		}
+	case GenerateImageDisplayType:
+		// Later turns edit these images by reference.
+		return generateImageSummary(data)
 	}
 	if displayType := stringField(data, "display_type"); displayType != "" {
 		return fmt.Sprintf("Tool completed (%s; payload omitted from history)", displayType)

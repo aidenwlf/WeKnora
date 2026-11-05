@@ -114,7 +114,7 @@ func sectionKeys(sections map[string]openPageSection) string {
 }
 
 var (
-	openPageModelTypes   = []string{"chat", "embedding", "rerank", "vllm", "asr"}
+	openPageModelTypes   = []string{"chat", "embedding", "rerank", "vllm", "asr", "image_generation"}
 	openPageModelSources = []string{"remote", "local"}
 	openPageTransports   = []string{"sse", "http-streamable"}
 	openPageAuthTypes    = []string{"", "api_key", "oauth"}
@@ -225,7 +225,7 @@ const openPageSchema = `{
       "type": "object",
       "description": "settings_models only: a new model, filled in. The user adds the API key.",
       "properties": {
-        "type": {"type": "string", "enum": ["chat", "embedding", "rerank", "vllm", "asr"]},
+        "type": {"type": "string", "enum": ["chat", "embedding", "rerank", "vllm", "asr", "image_generation"]},
         "source": {"type": "string", "enum": ["remote", "local"]},
         "provider": {
           "type": "string",

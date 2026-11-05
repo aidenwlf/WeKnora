@@ -63,6 +63,9 @@ type CreateKnowledgeQARequest struct {
 	LocalBrowserEnabled bool `json:"local_browser_enabled"`
 	// Whether web search is enabled for this request
 	WebSearchEnabled bool `json:"web_search_enabled"`
+	// ImageGenerationEnabled turns the agent's 生图 tool off (false) for this
+	// turn. Omitted keeps the agent's own configuration.
+	ImageGenerationEnabled *bool `json:"image_generation_enabled,omitempty"`
 	// Optional summary model ID for this request (overrides session default)
 	SummaryModelID string `json:"summary_model_id"`
 	// Per-request MCP services selected via @mention

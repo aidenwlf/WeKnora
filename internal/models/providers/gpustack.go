@@ -21,7 +21,13 @@
 //   - the default base URL is a placeholder the operator must replace
 //     (Validate requires it); the hostname contains "gpustack" so
 //     DetectByURL recognises catalog rows;
-//   - the catalog ships no models: deployments name their own.
+//   - the catalog ships no models: deployments name their own;
+//   - image models run on the vLLM-Omni backend, which serves
+//     /v1/images/generations and multipart /v1/images/edits (repeatable
+//     `image`) answering b64_json by default, with no url option and no
+//     documented ceiling on reference images
+//     (https://github.com/vllm-project/vllm-omni/blob/main/docs/serving/image_generation_api.md,
+//     https://github.com/vllm-project/vllm-omni/blob/main/docs/serving/image_edit_api.md).
 //
 // Unverified: whether GPUStack 2.x still answers on the old /v1-openai path.
 // The 2.x docs neither document it nor announce its removal, which is why
@@ -65,11 +71,12 @@ func newGpustackProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"gpustack"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: GpustackBaseURL,
-			types.ModelTypeEmbedding:   GpustackBaseURL,
-			types.ModelTypeRerank:      GpustackBaseURL,
-			types.ModelTypeVLLM:        GpustackBaseURL,
-			types.ModelTypeASR:         GpustackBaseURL,
+			types.ModelTypeKnowledgeQA:     GpustackBaseURL,
+			types.ModelTypeEmbedding:       GpustackBaseURL,
+			types.ModelTypeRerank:          GpustackBaseURL,
+			types.ModelTypeVLLM:            GpustackBaseURL,
+			types.ModelTypeASR:             GpustackBaseURL,
+			types.ModelTypeImageGeneration: GpustackBaseURL,
 		},
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
@@ -77,6 +84,7 @@ func newGpustackProvider() *Definition {
 			types.ModelTypeRerank,
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
+			types.ModelTypeImageGeneration,
 		},
 		ExtraFields: []ExtraField{{
 			Key:    models.ExtraScoreScale,
@@ -115,6 +123,9 @@ func newGpustackProvider() *Definition {
 			ModelTypes:   []types.ModelType{types.ModelTypeRerank},
 		}},
 		Compat: VendorCompat{
+			Images: api.ImagesCompat{
+				MaxInputImages: api.Ptr(16),
+			},
 			// Transcriptions keeps the baseline, json by default. GPUStack
 			// serves audio through vox-box (https://github.com/gpustack/vox-box),
 			// whose route wraps a json answer as {"text": ...} but returns

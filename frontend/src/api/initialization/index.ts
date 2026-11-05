@@ -408,6 +408,27 @@ export function checkASRModel(modelConfig: {
     });
 }
 
+// 检查生图模型连接（通过 /images/generations 真实生成一张图，会产生一次调用费用）
+export async function checkImageGenerationModel(modelConfig: {
+    modelName: string;
+    baseUrl: string;
+    apiKey?: string;
+    provider?: string;
+    modelId?: string;
+} & BaseModelTestPayload): Promise<{
+    available: boolean;
+    message?: string;
+}> {
+    try {
+        const response = await post<{ data?: { available: boolean; message?: string } }>(
+            '/api/v1/initialization/image-generation/check', modelConfig)
+        return response.data || { available: false };
+    } catch (error) {
+        console.error('Failed to check image generation model:', error);
+        throw error;
+    }
+}
+
 export function testMultimodalFunction(testData: {
     image: File;
     vlm_model: string;

@@ -16,10 +16,11 @@ import (
 )
 
 type fakeCreateSvc struct {
-	got       *sdk.CreateModelRequest
-	resp      *sdk.Model
-	err       error
-	providers []sdk.ModelProvider // returned by ListModelProviders; nil → default catalog
+	got          *sdk.CreateModelRequest
+	gotModelType string // the model_type ListModelProviders was asked for
+	resp         *sdk.Model
+	err          error
+	providers    []sdk.ModelProvider // returned by ListModelProviders; nil → default catalog
 }
 
 func (f *fakeCreateSvc) CreateModel(_ context.Context, req *sdk.CreateModelRequest) (*sdk.Model, error) {
@@ -30,7 +31,8 @@ func (f *fakeCreateSvc) CreateModel(_ context.Context, req *sdk.CreateModelReque
 	return f.resp, f.err
 }
 
-func (f *fakeCreateSvc) ListModelProviders(_ context.Context, _ string) ([]sdk.ModelProvider, error) {
+func (f *fakeCreateSvc) ListModelProviders(_ context.Context, modelType string) ([]sdk.ModelProvider, error) {
+	f.gotModelType = modelType
 	if f.providers != nil {
 		return f.providers, nil
 	}
@@ -116,6 +118,23 @@ func TestModelCreate_RemoteProviderValidatedAndBaseURLDefaulted(t *testing.T) {
 	assert.Nil(t, svc3.got, "must not create a model when --provider is unknown")
 }
 
+// TestModelCreate_ImageGenerationUsesServerVocabulary: the provider catalog is
+// queried and its default URL read under "image_generation", the server's
+// term, not the lowercased enum.
+func TestModelCreate_ImageGenerationUsesServerVocabulary(t *testing.T) {
+	_, _ = iostreams.SetForTest(t)
+	svc := &fakeCreateSvc{providers: []sdk.ModelProvider{{
+		Value: "openai", ModelTypes: []string{"image_generation"},
+		DefaultURLs: map[string]string{"image_generation": "https://api.openai.com/v1"},
+	}}}
+	require.NoError(t, runCreate(context.Background(),
+		&CreateOptions{Name: "gpt-image-1", Type: "ImageGeneration", Source: "remote", Provider: "openai"},
+		&cmdutil.FormatOptions{Mode: cmdutil.FormatText}, svc, nil))
+	assert.Equal(t, "image_generation", svc.gotModelType)
+	assert.Equal(t, sdk.ModelTypeImageGeneration, svc.got.Type)
+	assert.Equal(t, "https://api.openai.com/v1", svc.got.Parameters["base_url"])
+}
+
 func TestModelCreate_APIKeyStdinEmpty(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
 	svc := &fakeCreateSvc{}
@@ -198,6 +217,22 @@ func TestModelCreate_NormalizesTypeAliasAndSourceCase(t *testing.T) {
 	require.True(t, ok, "plan.args should be present; got %v", env.Meta.Plan)
 	assert.Equal(t, "KnowledgeQA", args["type"], "chat alias normalized to KnowledgeQA")
 	assert.Equal(t, "remote", args["source"], "source normalized to lowercase canonical")
+}
+
+func TestModelCreate_NormalizesImageGenerationAlias(t *testing.T) {
+	out, _ := iostreams.SetForTest(t)
+	root := withRootHarnessModel(NewCmdCreate(modelDryRunFactory(t)),
+		"m", "--type", "image_generation", "--source", "remote", "--provider", "openai", "--dry-run", "--format", "json")
+	require.NoError(t, root.Execute())
+	var env struct {
+		Meta struct {
+			Plan map[string]any `json:"plan"`
+		} `json:"meta"`
+	}
+	require.NoError(t, json.Unmarshal(out.Bytes(), &env))
+	args, ok := env.Meta.Plan["args"].(map[string]any)
+	require.True(t, ok, "plan.args should be present; got %v", env.Meta.Plan)
+	assert.Equal(t, "ImageGeneration", args["type"])
 }
 
 // TestModelCreate_RemoteRequiresProvider: --source remote without --provider is

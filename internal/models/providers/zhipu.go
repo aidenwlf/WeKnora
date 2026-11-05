@@ -38,7 +38,13 @@
 //   - embeddings: embedding-3 defaults to 2048 dimensions (256 / 512 / 1024 /
 //     2048 selectable), embedding-2 is fixed at 1024;
 //   - rerank is POST https://open.bigmodel.cn/api/paas/v4/rerank with model
-//     id "rerank".
+//     id "rerank";
+//   - images are POST {base}/images/generations with model, prompt and size
+//     (glm-image, cogview-4-250304, cogview-4, cogview-3-flash), answering
+//     one data[].url valid 30 days; there is no n, no response_format and
+//     no edits endpoint, so the vendor is text-to-image only. Sizes are
+//     recommended values plus free WxH within limits, so no list is closed
+//     (https://docs.bigmodel.cn/api-reference/模型-api/图像生成).
 //
 // unverified: the reference does not document `stream_options`,
 // `parallel_tool_calls` or `seed`; the protocol defaults (include_usage sent,
@@ -93,10 +99,11 @@ func newZhipuProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"open.bigmodel.cn", "zhipu"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: ZhipuBaseURL,
-			types.ModelTypeEmbedding:   ZhipuBaseURL,
-			types.ModelTypeRerank:      ZhipuRerankBaseURL,
-			types.ModelTypeVLLM:        ZhipuBaseURL,
+			types.ModelTypeKnowledgeQA:     ZhipuBaseURL,
+			types.ModelTypeEmbedding:       ZhipuBaseURL,
+			types.ModelTypeRerank:          ZhipuRerankBaseURL,
+			types.ModelTypeVLLM:            ZhipuBaseURL,
+			types.ModelTypeImageGeneration: ZhipuBaseURL,
 		},
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
@@ -104,8 +111,12 @@ func newZhipuProvider() *Definition {
 			types.ModelTypeRerank,
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
+			types.ModelTypeImageGeneration,
 		},
 		Compat: VendorCompat{
+			Images: api.ImagesCompat{
+				MaxCount: api.Ptr(1),
+			},
 			Transcriptions: api.TranscriptionsCompat{
 				// https://docs.bigmodel.cn/api-reference/模型-api/语音转文本:
 				// POST {base}/audio/transcriptions, multipart file + model

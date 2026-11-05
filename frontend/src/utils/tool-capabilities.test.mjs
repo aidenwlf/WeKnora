@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { deriveKbFilterFromTools, evaluateToolRequirement } from './tool-capabilities.ts'
+import { deriveKbFilterFromTools, evaluateToolRequirement, toolsConsumeFiles } from './tool-capabilities.ts'
 
 const wikiOnly = { vector: false, keyword: false, wiki: true, graph: false, faq: false }
 
@@ -22,4 +22,12 @@ test('document readers do not widen a RAG agent KB filter to wiki-only bases', (
   assert.deepEqual([...readerOnly.any_of].sort(), ['keyword', 'vector', 'wiki'])
 
   assert.equal(deriveKbFilterFromTools(['thinking']), null)
+})
+
+test('image generation needs no knowledge base and does not offer @ files', () => {
+  const noKb = { vector: false, keyword: false, wiki: false, graph: false, faq: false }
+  assert.deepEqual(evaluateToolRequirement('generate_image', noKb, false), { ok: true, missKind: 'none' })
+  assert.equal(deriveKbFilterFromTools(['generate_image']), null)
+  assert.equal(toolsConsumeFiles(['generate_image']), false)
+  assert.equal(toolsConsumeFiles(['generate_image', 'search_knowledge']), true)
 })

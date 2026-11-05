@@ -136,6 +136,7 @@ export const CRITICAL_LOCALE_KEYS = [
   'modelSettings.builtinModels.descriptionAdmin',
   'model.editor.description.chat',
   'model.editor.description.asr',
+  'model.editor.description.image_generation',
   'inviteRegister.emailPlaceholder',
   'knowledgeList.sections.tenantOthers',
   'agent.sections.tenantOthers',

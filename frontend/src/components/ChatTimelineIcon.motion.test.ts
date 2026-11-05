@@ -11,7 +11,7 @@ import { getAgentToolIconName } from '../utils/agent-tool-icons'
 
 const iconNames = [
   'lightbulb', 'ai-search', 'bookmark', 'search', 'internet', 'data-search', 'file-search',
-  'file', 'file-paste', 'task', 'folder', 'edit', 'attach', 'terminal', 'code', 'chat',
+  'file', 'file-paste', 'task', 'folder', 'edit', 'attach', 'image', 'terminal', 'code', 'chat',
   'agent', 'browser', 'jump', 'compaction', 'ellipsis', 'check-circle', 'play-circle',
   'time', 'minus-circle', 'close-circle', 'help-circle', 'secured', 'lock-on',
 ]
@@ -60,7 +60,7 @@ test('active icons keep their viewport and stroke, while completed and historica
 test('every tool icon family has a semantic motion, including the unknown-tool fallback', async () => {
   const tools = [
     'thinking', 'search_knowledge', 'wiki_search', 'web_search', 'web_fetch', 'read_document',
-    'todo_write', 'attachment_parsing', 'call_mcp_tool', 'shell_exec', 'list_sandbox_files',
+    'todo_write', 'attachment_parsing', 'generate_image', 'call_mcp_tool', 'shell_exec', 'list_sandbox_files',
     'read_file', 'write_sandbox_file', 'execute_skill_script', 'spawn_agent', 'local_browser',
     'open_page', 'unknown_tool',
   ]

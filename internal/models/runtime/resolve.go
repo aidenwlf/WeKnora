@@ -63,6 +63,11 @@ type Resolved struct {
 	// reference.
 	TranscriptionAPI api.TranscriptionAPI
 	Transcriptions   api.TranscriptionsSettings
+
+	// ImageGenerationAPI and Images are filled only for an ImageGeneration
+	// reference.
+	ImageGenerationAPI api.ImageGenerationAPI
+	Images             api.ImagesSettings
 }
 
 // Resolve merges the vendor, catalog entry, extra-config and per-row
@@ -109,6 +114,9 @@ func resolveWithVendor(ref Ref, vendor *Provider) (*Resolved, error) {
 	}
 	if modelType == types.ModelTypeASR {
 		return resolveTranscriptions(ref, vendor, spec, cataloged, baseURL)
+	}
+	if modelType == types.ModelTypeImageGeneration {
+		return resolveImages(ref, vendor, spec, cataloged, baseURL)
 	}
 
 	resolvedAPI := spec.API
@@ -300,10 +308,14 @@ func (r *Resolved) Capabilities() Capabilities {
 		ContextWindow:   r.Spec.ContextWindow,
 		MaxOutputTokens: r.Spec.MaxOutputTokens,
 	}
-	// Embedding, rerank and ASR references resolve no chat protocol, and an
-	// empty level map reads as "every level supported"; they do not think.
+	// Embedding, rerank, ASR and image references resolve no chat protocol,
+	// and an empty level map reads as "every level supported"; they do not
+	// think.
 	if r.API == "" {
 		caps.ThinkingLevels = []api.ReasoningEffort{}
+		if r.ImageGenerationAPI != "" {
+			caps.Input = imageGenerationInput(r.Images.MaxInputImages)
+		}
 		return caps
 	}
 	switch r.API {

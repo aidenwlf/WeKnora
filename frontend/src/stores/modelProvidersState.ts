@@ -19,6 +19,7 @@ const FRONTEND_TO_BACKEND_MODEL_TYPE: Record<string, string> = {
   rerank: 'Rerank',
   vllm: 'VLLM',
   asr: 'ASR',
+  image_generation: 'ImageGeneration',
 }
 
 const BACKEND_TO_FRONTEND_MODEL_TYPE: Record<string, string> = Object.fromEntries(

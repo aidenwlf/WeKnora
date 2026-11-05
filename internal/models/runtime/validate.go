@@ -44,7 +44,7 @@ func ValidateRow(modelName string, modelType types.ModelType, params *types.Mode
 func resolvesThroughCatalog(modelType types.ModelType) bool {
 	switch modelType {
 	case types.ModelTypeKnowledgeQA, types.ModelTypeVLLM, types.ModelTypeEmbedding, types.ModelTypeRerank,
-		types.ModelTypeASR:
+		types.ModelTypeASR, types.ModelTypeImageGeneration:
 		return true
 	}
 	return false

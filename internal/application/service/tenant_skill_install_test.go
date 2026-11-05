@@ -27,6 +27,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/models/asr"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/models/imagegen"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/models/vlm"
 	"github.com/Tencent/WeKnora/internal/sandbox"
@@ -3429,6 +3430,10 @@ func (s *installModelService) GetChatModel(_ context.Context, modelID string) (c
 func (s *installModelService) GetVLMModel(context.Context, string) (vlm.VLM, error) { return nil, nil }
 
 func (s *installModelService) GetASRModel(context.Context, string) (asr.ASR, error) { return nil, nil }
+
+func (s *installModelService) GetImageGenerationModel(context.Context, string) (imagegen.ImageGenerator, error) {
+	return nil, nil
+}
 
 type installChat struct{ id string }
 

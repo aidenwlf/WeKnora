@@ -117,9 +117,10 @@ func newAzureOpenaiProvider() *Definition {
 		Auth:         AuthAPIKeyHeader,
 		URLPatterns:  []string{"openai.azure.com"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: AzureOpenaiBaseURL,
-			types.ModelTypeEmbedding:   AzureOpenaiBaseURL,
-			types.ModelTypeVLLM:        AzureOpenaiBaseURL,
+			types.ModelTypeKnowledgeQA:     AzureOpenaiBaseURL,
+			types.ModelTypeEmbedding:       AzureOpenaiBaseURL,
+			types.ModelTypeVLLM:            AzureOpenaiBaseURL,
+			types.ModelTypeImageGeneration: AzureOpenaiBaseURL,
 		},
 		// ASR is deliberately absent. The ASR client now resolves through
 		// this vendor (api-key header, Endpoint hook below), but the only
@@ -131,10 +132,21 @@ func newAzureOpenaiProvider() *Definition {
 		// resource, advertising the type would let the picker create a row
 		// that may fail at first use. A row with an explicit api_version
 		// would take the documented deployments path.
+		//
+		// Image generation is declared because its v1 form is documented with
+		// the version it needs: POST {endpoint}/openai/v1/images/generations
+		// and /images/edits ?api-version=preview, the deployment name in
+		// `model`, multipart image[] with up to 16 reference images, replies
+		// in b64_json only (same reference page, and
+		// https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/dall-e).
+		// The hook sends that version on the v1 path; an explicit api_version
+		// (gpt-image needs 2025-04-01-preview or later) takes the deployments
+		// path as for every other type.
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
 			types.ModelTypeEmbedding,
 			types.ModelTypeVLLM,
+			types.ModelTypeImageGeneration,
 		},
 		ExtraFields: []ExtraField{
 			{
@@ -153,6 +165,9 @@ func newAzureOpenaiProvider() *Definition {
 			},
 		},
 		Compat: VendorCompat{
+			Images: api.ImagesCompat{
+				MaxInputImages: api.Ptr(16),
+			},
 			Embeddings: api.EmbeddingsCompat{
 				// The same body as OpenAI's; the Endpoint hook below supplies the
 				// v1 or deployments URL.
@@ -175,6 +190,9 @@ func newAzureOpenaiProvider() *Definition {
 				path = "/embeddings"
 			case types.ModelTypeASR:
 				path = "/audio/transcriptions"
+			case types.ModelTypeImageGeneration:
+				// The openaiimages client derives the sibling /images/edits.
+				path = "/images/generations"
 			default:
 				if r.API == api.APIOpenAIResponses {
 					path = "/responses"
@@ -190,10 +208,14 @@ func newAzureOpenaiProvider() *Definition {
 				legacy := root + "/openai/deployments/" + url.PathEscape(r.Model) + path
 				return legacy, map[string]string{"api-version": version}
 			}
-			if strings.HasSuffix(root, "/openai/v1") {
-				return root + path, nil
+			var query map[string]string
+			if r.ModelType == types.ModelTypeImageGeneration {
+				query = map[string]string{"api-version": "preview"}
 			}
-			return root + "/openai/v1" + path, nil
+			if strings.HasSuffix(root, "/openai/v1") {
+				return root + path, query
+			}
+			return root + "/openai/v1" + path, query
 		},
 	}
 }

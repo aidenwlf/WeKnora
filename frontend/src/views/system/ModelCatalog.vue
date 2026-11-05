@@ -354,6 +354,7 @@ interface FieldDef { key: FieldKey; kind: FieldKind; label: string; desc: string
 const PAGE_SIZE = 20
 const TYPE_LABEL_KEYS: Record<string, string> = {
   KnowledgeQA: 'chat', Embedding: 'embedding', Rerank: 'rerank', VLLM: 'vllm', ASR: 'asr',
+  ImageGeneration: 'image_generation',
 }
 
 const { t, locale } = useI18n()
@@ -484,6 +485,8 @@ const fieldDefs = computed<FieldDef[]>(() => [
   { key: 'max_output_tokens', kind: 'tokens', label: t('modelCatalog.output'), desc: t('modelCatalog.outputDesc'), types: CHAT },
   { key: 'dimension', kind: 'number', label: t('modelCatalog.dimension'), desc: t('modelCatalog.dimensionDesc'), types: ['Embedding'] },
   { key: 'input', kind: 'modalities', label: t('modelCatalog.inputModes'), desc: t('modelCatalog.inputDesc'), types: CHAT },
+  // Same field for image generation: image input marks image-to-image (edit) support.
+  { key: 'input', kind: 'modalities', label: t('modelCatalog.inputModes'), desc: t('modelCatalog.imageGenerationInputDesc'), types: ['ImageGeneration'] },
   { key: 'reasoning', kind: 'bool', label: t('modelCatalog.reasoning'), desc: t('modelCatalog.reasoningDesc'), types: CHAT },
   { key: 'thinking_levels', kind: 'levels', label: t('modelCatalog.thinkingLevels'), desc: t('modelCatalog.thinkingLevelsDesc'), types: CHAT },
   { key: 'deprecated', kind: 'bool', label: t('modelCatalog.hide'), desc: t('modelCatalog.hideDesc') },

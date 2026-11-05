@@ -128,6 +128,9 @@ func (s *sessionService) AgentQA(
 	if req.CustomAgent != nil && req.CustomAgent.Config.VLMModelID != "" {
 		agentConfig.VLMModelID = req.CustomAgent.Config.VLMModelID
 	}
+	if req.CustomAgent != nil {
+		agentConfig.ImageGenerationModelID = req.CustomAgent.Config.ImageGenerationModelID
+	}
 
 	// Resolve model ID using shared helper (AgentQA requires a model, so error if not found)
 	effectiveModelID, modelTenantID, err := s.resolveChatModelID(
@@ -219,10 +222,15 @@ func (s *sessionService) AgentQA(
 	// canonical assistant message. History is sized by the window, not by a
 	// turn count: compaction and its persisted checkpoints keep it in bounds.
 	var llmContext []chat.Message
+	imageGeneration := offersImageGeneration(agentConfig)
 	if agentConfig.MultiTurnEnabled {
 		budget := agent.HistoryTokenBudget(agentConfig)
+		var historyOpts []AgentHistoryOption
+		if imageGeneration {
+			historyOpts = append(historyOpts, WithUserImageReferences())
+		}
 		llmContext, agentConfig.ContextTokenScale, err = LoadAgentHistory(
-			ctx, s.messageRepo, sessionID, budget, agentConfig.RetainRetrievalHistory,
+			ctx, s.messageRepo, sessionID, budget, agentConfig.RetainRetrievalHistory, historyOpts...,
 		)
 		if err != nil {
 			logger.Warnf(ctx, "Failed to load agent history from DB: %v, continuing without history", err)
@@ -393,6 +401,9 @@ func (s *sessionService) AgentQA(
 		} else if len(req.ImageURLs) > 0 {
 			logger.Warnf(ctx, "Agent model cannot view %d image(s) and no description was produced", len(req.ImageURLs))
 		}
+		if imageGeneration {
+			agentQuery += s.currentTurnImageReferences(ctx, req)
+		}
 		if req.QuotedContext != "" {
 			agentQuery += "\n\n" + req.QuotedContext
 		}
@@ -487,22 +498,23 @@ func composeAgentImageQuery(
 // run elsewhere. Session, attachments and images are reloaded from storage.
 func resumableAgentRequest(ctx context.Context, req *types.QARequest) types.ResumableAgentRequest {
 	r := types.ResumableAgentRequest{
-		ActingVia:           types.ActingViaFromContext(ctx),
-		Query:               req.Query,
-		SummaryModelID:      req.SummaryModelID,
-		ReasoningEffort:     req.ReasoningEffort,
-		SharedAgentReadOnly: req.SharedAgentReadOnly,
-		KnowledgeBaseIDs:    req.KnowledgeBaseIDs,
-		KnowledgeIDs:        req.KnowledgeIDs,
-		TagScopes:           req.TagScopes,
-		MCPServiceIDs:       req.MCPServiceIDs,
-		SkillNames:          req.SkillNames,
-		WebSearchEnabled:    req.WebSearchEnabled,
-		QuestionOrigin:      req.QuestionOrigin,
-		PageContext:         req.PageContext,
-		AssistantAccess:     req.AssistantAccess,
-		UserMessageID:       req.UserMessageID,
-		Language:            types.LanguageFromContextOrDefault(ctx),
+		ActingVia:              types.ActingViaFromContext(ctx),
+		Query:                  req.Query,
+		SummaryModelID:         req.SummaryModelID,
+		ReasoningEffort:        req.ReasoningEffort,
+		SharedAgentReadOnly:    req.SharedAgentReadOnly,
+		KnowledgeBaseIDs:       req.KnowledgeBaseIDs,
+		KnowledgeIDs:           req.KnowledgeIDs,
+		TagScopes:              req.TagScopes,
+		MCPServiceIDs:          req.MCPServiceIDs,
+		SkillNames:             req.SkillNames,
+		WebSearchEnabled:       req.WebSearchEnabled,
+		ImageGenerationEnabled: req.ImageGenerationEnabled,
+		QuestionOrigin:         req.QuestionOrigin,
+		PageContext:            req.PageContext,
+		AssistantAccess:        req.AssistantAccess,
+		UserMessageID:          req.UserMessageID,
+		Language:               types.LanguageFromContextOrDefault(ctx),
 	}
 	if req.CustomAgent != nil {
 		r.AgentID, r.AgentTenantID = req.CustomAgent.ID, req.CustomAgent.TenantID
@@ -607,6 +619,7 @@ func (s *sessionService) buildAgentConfig(
 
 	// An unset list selects the default tools; an empty one means none.
 	agentConfig.AllowedTools = tools.EffectiveAllowedTools(customAgent.Config.AllowedTools)
+	agentConfig.AllowedTools = applyImageGenerationToggle(agentConfig.AllowedTools, req.ImageGenerationEnabled)
 	// Apply per-turn @Skill / @MCP scope. Each helper narrows the agent's
 	// whitelist to the mentioned items and records the pinned set used for the
 	// <must_use> hint, keeping all scope logic in one place per resource type.
@@ -1027,4 +1040,16 @@ func targetsCoverDocument(targets types.SearchTargets, kbID, docID string) bool 
 		}
 	}
 	return false
+}
+
+// applyImageGenerationToggle honours the composer's 生图 switch. Off removes
+// generate_image from this run only, leaving the agent's configuration intact;
+// on cannot add the tool where the agent does not already offer it.
+func applyImageGenerationToggle(allowed []string, enabled *bool) []string {
+	if enabled == nil || *enabled {
+		return allowed
+	}
+	return slices.DeleteFunc(slices.Clone(allowed), func(name string) bool {
+		return name == tools.ToolGenerateImage
+	})
 }

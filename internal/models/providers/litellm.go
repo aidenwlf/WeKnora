@@ -64,10 +64,11 @@ func newLitellmProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"litellm"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: LitellmBaseURL,
-			types.ModelTypeEmbedding:   LitellmBaseURL,
-			types.ModelTypeRerank:      LitellmRerankBaseURL,
-			types.ModelTypeVLLM:        LitellmBaseURL,
+			types.ModelTypeKnowledgeQA:     LitellmBaseURL,
+			types.ModelTypeEmbedding:       LitellmBaseURL,
+			types.ModelTypeRerank:          LitellmRerankBaseURL,
+			types.ModelTypeVLLM:            LitellmBaseURL,
+			types.ModelTypeImageGeneration: LitellmBaseURL,
 		},
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
@@ -75,6 +76,7 @@ func newLitellmProvider() *Definition {
 			types.ModelTypeRerank,
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
+			types.ModelTypeImageGeneration,
 		},
 		ExtraFields: []ExtraField{{
 			Key:    models.ExtraScoreScale,
@@ -102,6 +104,14 @@ func newLitellmProvider() *Definition {
 			ModelTypes: []types.ModelType{types.ModelTypeRerank},
 		}},
 		Compat: VendorCompat{
+			// The proxy serves /images/generations and, from 1.71.1,
+			// multipart /images/edits for whichever upstream a route names
+			// (https://docs.litellm.ai/docs/image_generation,
+			// https://docs.litellm.ai/docs/image_edits). Limits are the
+			// upstream's, so reference images are allowed up to OpenAI's 16.
+			Images: api.ImagesCompat{
+				MaxInputImages: api.Ptr(16),
+			},
 			// Transcriptions keeps the baseline: the proxy serves the OpenAI
 			// /audio/transcriptions route for whichever upstream it is
 			// configured with (https://docs.litellm.ai/docs/audio_transcription).

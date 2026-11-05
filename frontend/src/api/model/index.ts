@@ -51,7 +51,7 @@ export interface ModelConfig {
   tenant_id?: number;
   name: string;
   display_name?: string;
-  type: 'KnowledgeQA' | 'Embedding' | 'Rerank' | 'VLLM' | 'ASR';
+  type: 'KnowledgeQA' | 'Embedding' | 'Rerank' | 'VLLM' | 'ASR' | 'ImageGeneration';
   source: 'local' | 'remote';
   description?: string;
   parameters: {
@@ -238,6 +238,15 @@ export interface ModelDebugOptions {
   reasoning_effort?: ReasoningEffortLevel | string
   // Embedding only: score `documents` (and the file) against `input` as a query.
   similarity?: boolean
+  // ImageGeneration only: output size (e.g. "1024x1024") and number of images.
+  size?: string
+  count?: number
+}
+
+export interface ModelDebugImage {
+  data_uri: string
+  mime_type: string
+  revised_prompt?: string
 }
 
 export interface ModelDebugResult {
@@ -247,6 +256,8 @@ export interface ModelDebugResult {
   raw_response: unknown
   observations: Record<string, unknown>
   error?: string
+  // ImageGeneration only: the generated images.
+  images?: ModelDebugImage[]
 }
 
 export async function debugModel(
@@ -256,6 +267,8 @@ export async function debugModel(
     documents?: string[]
     options?: ModelDebugOptions
     file?: File | null
+    // ImageGeneration reference images: each one is sent as its own `file` part.
+    files?: File[]
   },
 ): Promise<ModelDebugResult> {
   const form = new FormData()
@@ -263,6 +276,7 @@ export async function debugModel(
   form.append('documents', JSON.stringify(data.documents || []))
   form.append('options', JSON.stringify(data.options || {}))
   if (data.file) form.append('file', data.file)
+  for (const item of data.files || []) form.append('file', item)
   const response: any = await postUpload(
     `/api/v1/models/${id}/debug`,
     form,

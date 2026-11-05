@@ -30,6 +30,9 @@
       </div>
       <div v-if="formData.source === 'remote'" class="connection-feedback" aria-live="polite">
         <p class="connection-hint">{{ $t(isEdit ? 'model.editor.testDraftEditHint' : 'model.editor.testDraftHint') }}</p>
+        <p v-if="activeModelType === 'image_generation'" class="connection-hint">
+          {{ $t('model.editor.imageGenerationTestCost') }}
+        </p>
         <p v-if="remoteStale" class="connection-hint">{{ $t('model.editor.testStale') }}</p>
         <div v-if="remoteChecked && !remoteAvailable" class="connection-result error">
           <div class="connection-result__header">
@@ -93,7 +96,7 @@
               <span class="source-option__label">{{ $t('model.editor.sourceRemote') }}</span>
             </button>
             <button
-              v-if="activeModelType !== 'rerank'"
+              v-if="supportsLocalSource(activeModelType)"
               type="button"
               class="source-option"
               :class="{ 'is-active': formData.source === 'local', 'is-disabled': ollamaServiceStatus === false }"
@@ -619,7 +622,8 @@
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { MessagePlugin, DialogPlugin } from 'tdesign-vue-next'
 import {
-  checkOllamaModels, checkRemoteModel, testEmbeddingModel, checkRerankModel, checkASRModel, listOllamaModels,
+  checkOllamaModels, checkRemoteModel, testEmbeddingModel, checkRerankModel, checkASRModel,
+  checkImageGenerationModel, listOllamaModels,
   downloadOllamaModel, getDownloadProgress, checkOllamaStatus, resolveModelCatalog,
   type OllamaModelInfo, type ModelProviderOption, type ModelProviderExtraField,
   type ModelProviderExtraFieldOption, type ModelCatalogEntry,
@@ -655,7 +659,7 @@ import CredentialResource, {
   type CredentialFieldDef,
   type CredentialResourceApi,
 } from '@/components/credentials/CredentialResource.vue'
-import { shouldShowOllamaUnavailableTip } from '@/components/modelEditorSourceState'
+import { shouldShowOllamaUnavailableTip, supportsLocalSource } from '@/components/modelEditorSourceState'
 import { WEKNORA_CLOUD_PROVIDER, WKC_MODEL_KINDS, WKC_MODEL_NAME_BY_KIND } from '@/utils/weknoraCloudModels'
 import { docsUrl } from '@/utils/docsUrl'
 
@@ -723,7 +727,7 @@ const LEGACY_THINKING_CONTROL_VALUES = ['none', 'enable_thinking', 'thinking_typ
 /** Keys of extra_config that are edited by dedicated controls, not the generic renderer. */
 const RESERVED_EXTRA_CONFIG_KEYS = new Set(['thinking_control'])
 
-type EditorModelType = 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr'
+type EditorModelType = 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr' | 'image_generation'
 
 interface Props {
   visible: boolean
@@ -762,6 +766,7 @@ const modelTypeChoices = computed(() => ([
   { value: 'rerank' as const, label: t('modelSettings.typeShort.rerank'), icon: 'filter-sort' },
   { value: 'vllm' as const, label: t('modelSettings.typeShort.vllm'), icon: 'image' },
   { value: 'asr' as const, label: t('modelSettings.typeShort.asr'), icon: 'sound' },
+  { value: 'image_generation' as const, label: t('modelSettings.typeShort.image_generation'), icon: 'palette' },
 ]))
 
 // 厂商列表完全来自后端目录（store 按模型类型缓存）；前端不再维护任何厂商表。
@@ -1167,6 +1172,7 @@ const modelTypeIcon = computed(() => {
     rerank: 'filter-sort',
     vllm: 'image',
     asr: 'sound',
+    image_generation: 'palette',
   }
   return map[activeModelType.value] || 'setting'
 })
@@ -1409,6 +1415,9 @@ const getModelNamePlaceholder = () => {
   if (activeModelType.value === 'asr') {
     return t('model.editor.modelNamePlaceholder.remoteAsr')
   }
+  if (activeModelType.value === 'image_generation') {
+    return t('model.editor.modelNamePlaceholder.remoteImageGeneration')
+  }
   return formData.value.source === 'local'
     ? t('model.editor.modelNamePlaceholder.local')
     : t('model.editor.modelNamePlaceholder.remote')
@@ -1420,6 +1429,9 @@ const getBaseUrlPlaceholder = () => {
   }
   if (activeModelType.value === 'asr') {
     return t('model.editor.baseUrlPlaceholderAsr')
+  }
+  if (activeModelType.value === 'image_generation') {
+    return t('model.editor.baseUrlPlaceholderImageGeneration')
   }
   return t('model.editor.baseUrlPlaceholder')
 }
@@ -1542,8 +1554,8 @@ const initializeVisibleForm = (val: boolean) => {
 
       lastOpenedModelId.value = currentId
 
-      // ReRank 模型强制使用 remote 来源（Ollama 不支持 ReRank）
-      if (activeModelType.value === 'rerank') {
+      // ReRank / 生图强制使用 remote 来源（Ollama 不支持）
+      if (!supportsLocalSource(activeModelType.value)) {
         formData.value.source = 'remote'
       }
 
@@ -1983,6 +1995,19 @@ const checkRemoteAPI = async () => {
       case 'asr':
         // ASR 模型（语音识别）— 使用专用的 ASR 测试接口（/v1/audio/transcriptions）
         result = await checkASRModel({
+          modelName: formData.value.modelName,
+          baseUrl: formData.value.baseUrl || '',
+          apiKey: formData.value.apiKey || '',
+          provider: formData.value.provider,
+          ...idPayload,
+          ...headerPayload,
+          ...extraPayload,
+        })
+        break
+
+      case 'image_generation':
+        // 生图模型：后端真实生成一张图（/images/generations），会产生一次调用费用
+        result = await checkImageGenerationModel({
           modelName: formData.value.modelName,
           baseUrl: formData.value.baseUrl || '',
           apiKey: formData.value.apiKey || '',

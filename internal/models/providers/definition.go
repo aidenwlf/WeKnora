@@ -169,6 +169,9 @@ type Definition struct {
 	// TranscriptionAPI is the speech-to-text protocol. Register defaults it
 	// to the OpenAI shape for any vendor that serves ASR.
 	TranscriptionAPI api.TranscriptionAPI
+	// ImageGenerationAPI is the image generation protocol. Register defaults
+	// it to OpenAI's Images API for any vendor that serves ImageGeneration.
+	ImageGenerationAPI api.ImageGenerationAPI
 	// DefaultBaseURLs by model type; GetDefaultURL falls back to chat.
 	DefaultBaseURLs map[types.ModelType]string
 	ModelTypes      []types.ModelType

@@ -24,6 +24,7 @@ interface Settings {
   ollamaConfig: OllamaConfig;  // Ollama配置
   localBrowserEnabled: boolean; // Explicit source preference; composer activates it only while the extension is online
   webSearchEnabled: boolean;  // 网络搜索是否启用
+  imageGenerationEnabled: boolean;  // 输入框「生图」开关，默认跟随智能体配置
   conversationModels: ConversationModels;
   selectedAgentId: string;  // 当前选中的智能体ID
   selectedAgentSourceTenantId: string | null;  // 当使用共享智能体时，来源空间 ID（用于后端 model/KB/MCP 解析）
@@ -101,6 +102,7 @@ const defaultSettings: Settings = {
   },
   localBrowserEnabled: false,
   webSearchEnabled: false,  // 默认关闭网络搜索
+  imageGenerationEnabled: true,  // 默认开启生图（智能体未提供时按钮不显示）
   conversationModels: {
     summaryModelId: "",
     rerankModelId: "",
@@ -172,6 +174,7 @@ export const useSettingsStore = defineStore("settings", {
     // 本轮查询来源
     isLocalBrowserEnabled: (state) => state.settings.localBrowserEnabled === true,
     isWebSearchEnabled: (state) => state.settings.webSearchEnabled || false,
+    isImageGenerationEnabled: (state) => state.settings.imageGenerationEnabled !== false,
     
     // 是否自动检查并下载更新
     isAutoCheckUpdateEnabled: (state) => state.settings.autoCheckUpdate ?? true,
@@ -336,6 +339,11 @@ export const useSettingsStore = defineStore("settings", {
 
     toggleWebSearch(enabled: boolean) {
       this.settings.webSearchEnabled = enabled;
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+
+    toggleImageGeneration(enabled: boolean) {
+      this.settings.imageGenerationEnabled = enabled;
       localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
     },
 
@@ -600,6 +608,9 @@ export const useSettingsStore = defineStore("settings", {
         if (typeof state.web_search_enabled === "boolean") {
           this.settings.webSearchEnabled = state.web_search_enabled;
         }
+        if (typeof state.image_generation_enabled === "boolean") {
+          this.settings.imageGenerationEnabled = state.image_generation_enabled;
+        }
       } finally {
         // 复位必须延后到下一次 flush 之后：监听 selectedAgentId 的 watcher 默认
         // flush:'pre'，是异步执行的；若在此处同步复位，watcher 真正运行时标志早已
@@ -628,6 +639,8 @@ export interface SessionLastRequestStatePayload {
   tag_ids?: string[];
   mcp_service_ids?: string[];
   skill_names?: string[];
+  // 输入框「生图」开关；缺省表示会话没有记录过，按智能体默认显示
+  image_generation_enabled?: boolean;
   mentioned_items?: Array<{
     id: string;
     name?: string;

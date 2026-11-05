@@ -52,6 +52,7 @@ export default {
     "dimension": "ベクトル次元",
     "dimensionDesc": "この埋め込みモデルを追加するときに事前入力される次元。モデルの実際の出力と一致させてください。",
     "inputDesc": "モデルが受け付ける入力の種類。画像を選ぶとビジョンモデルとして使用できます。",
+    "imageGenerationInputDesc": "画像生成モデルが受け付ける入力の種類。画像を選ぶと、参考画像の編集・合成（画像から画像）に対応することを示します。",
     "thinkingLevels": "思考レベル",
     "thinkingLevelsDesc": "チャットで選べる思考の強さ。「オフ」を選ばない場合、モデルは常に思考します。",
     "levelsNeedReasoning": "「思考対応」をオンにすると設定できます。",
@@ -3118,7 +3119,6 @@ export default {
     error: 'エラー',
     success: '成功',
     failed: '失敗',
-    info: '情報',
     selectAll: 'すべて選択',
     yes: 'はい',
     no: 'いいえ',
@@ -3128,10 +3128,8 @@ export default {
     finish: '完了',
     all: 'すべて',
     clear: 'クリア',
-    website: '公式サイト',
     clawhubSkill: 'Claw Skill',
     github: 'GitHub',
-    githubStarTip: 'GitHubでリポジトリを開きます。役に立ったらStarをお願いします',
     on: 'オン',
     off: 'オフ',
     confirmDelete: '削除の確認',
@@ -3334,6 +3332,11 @@ export default {
       toggleOff: 'Web検索を無効化',
       notConfigured: 'Web検索エンジンが未設定です'
     },
+    imageGeneration: {
+      label: '画像生成',
+      toggleOn: '画像生成をオンにする',
+      toggleOff: '画像生成をオフにする'
+    },
     knowledgeBase: 'ナレッジベース',
     knowledgeBaseWithCount: 'ナレッジベース（{count}）',
     notConfigured: '未設定',
@@ -3368,6 +3371,8 @@ export default {
       webSearchNotConfigured: 'Web検索エンジンが未設定です。設定でプロバイダと認証情報を設定してください。',
       webSearchEnabled: 'Web検索を有効にしました',
       webSearchDisabled: 'Web検索を無効にしました',
+      imageGenerationEnabled: '画像生成をオンにしました',
+      imageGenerationDisabled: '画像生成をオフにしました',
       sessionMissing: 'セッションIDが存在しません',
       messageMissing: 'メッセージIDを取得できません。ページを更新して再試行してください。',
       stopSuccess: '生成を停止しました',
@@ -5522,6 +5527,7 @@ export default {
           rerank: '検索結果のリランクに使うモデルを設定します',
           vllm: 'マルチモーダル理解に使う視覚言語モデルを設定します',
           asr: '音声の文字起こしに使う音声認識モデルを設定します',
+          image_generation: 'テキストからの画像生成と画像からの画像生成に使う画像生成モデルを設定します（OpenAI 互換 Images API）',
           default: 'モデル情報を設定します'
         },
         modelNamePlaceholder: {
@@ -5529,7 +5535,8 @@ export default {
           remote: '例: gpt-4, claude-3-opus',
           localVllm: '例: llava:latest',
           remoteVllm: '例: gpt-4-vision-preview',
-          remoteAsr: '例: whisper-1'
+          remoteAsr: '例: whisper-1',
+          remoteImageGeneration: '例: gpt-image-1'
         },
         baseUrlLabel: 'ベースURL',
         displayNameLabel: '表示名（任意）',
@@ -5538,6 +5545,8 @@ export default {
         baseUrlPlaceholder: '例: https://api.openai.com/v1',
         baseUrlPlaceholderVllm: '例: http://localhost:11434/v1',
         baseUrlPlaceholderAsr: '例: https://api.openai.com/v1',
+        baseUrlPlaceholderImageGeneration: '例: https://api.openai.com/v1',
+        imageGenerationTestCost: '接続テストでは実際に画像を 1 枚生成し、1 回分の生成として課金されます。',
         apiKeyOptional: 'APIキー（任意）',
         apiKeyPlaceholder: 'APIキーを入力してください',
         customHeadersLabel: 'カスタムリクエストヘッダー（任意）',
@@ -5620,7 +5629,6 @@ export default {
       title: '一般設定',
       allSettings: 'すべての設定',
       personalSettings: '個人設定',
-      helpAndDocs: 'ヘルプとドキュメント',
       description: '言語や外観などの基本オプションを設定します',
       settings: '設定',
       close: '設定を閉じる'
@@ -5880,7 +5888,8 @@ export default {
         embedding: '埋め込み',
         rerank: 'リランク',
         vllm: '視覚',
-        asr: '音声'
+        asr: '音声',
+        image_generation: '画像生成'
       },
       actions: {
         addModel: 'モデルを追加',
@@ -5910,6 +5919,12 @@ export default {
         title: 'VLLM視覚モデル',
         desc: 'マルチモーダル理解に使用する視覚言語モデルを設定します',
         empty: 'VLLMモデルがありません'
+      },
+      image_generation: {
+        title: '画像生成モデル',
+        desc: 'テキストからの画像生成と画像からの画像生成に使う画像生成モデルを設定します（OpenAI 互換 Images API）',
+        empty: '画像生成モデルがありません',
+        imageToImage: '画像から画像の生成に対応'
       },
       asr: {
         title: 'ASR音声モデル',
@@ -5965,6 +5980,7 @@ export default {
           rerank_model: 'リランクモデル',
           query_understand_model: 'クエリ理解モデル',
           follow_up_model: 'フォローアップモデル',
+          image_generation_model: '画像生成モデル',
           extract_model: 'メモリ抽出モデル',
           unknown: 'その他のモデル設定'
         }
@@ -5987,6 +6003,8 @@ export default {
         embeddingPlaceholder: '埋め込みを生成するテキストを入力してください',
         vlmPrompt: '画像プロンプト',
         vlmPromptPlaceholder: '例: この画像を詳しく説明してください',
+        imagePrompt: '画像生成プロンプト',
+        imagePromptPlaceholder: '例: 雪原を駆けるアカギツネ、水彩画風',
         documents: '候補ドキュメント',
         documentsPlaceholder: '候補ドキュメントを1行に1件ずつ入力してください',
         documentsHint: '空でない各行が個別のドキュメントとしてリランクモデルに送信されます',
@@ -6001,6 +6019,13 @@ export default {
         similarityImageCandidate: '画像',
         audioFile: '音声ファイル',
         chooseFile: 'ファイルを選択',
+        referenceImages: '参考画像（任意）',
+        referenceImagesHint: '未指定ならテキストから生成します。アップロードした画像は編集・合成されます（画像から画像）。複数選択できます',
+        imageSize: '画像サイズ',
+        imageSizePlaceholder: '例: 1024x1024（空欄ならモデルの既定値）',
+        imageCount: '生成枚数',
+        previewImage: '拡大表示',
+        revisedPrompt: 'モデルが書き換えたプロンプト',
         parameters: 'リクエストパラメータ',
         systemPrompt: 'システムプロンプト',
         systemPromptPlaceholder: 'システムプロンプト（任意）',
@@ -6023,7 +6048,9 @@ export default {
           reasoningChars: '推論文字数',
           reasoningReturned: '推論内容の返却',
           textChars: '文字起こし文字数',
-          segmentCount: 'セグメント数'
+          segmentCount: 'セグメント数',
+          imageCount: '生成画像数',
+          inputImageCount: '参考画像数'
         }
       }
     },
@@ -7370,6 +7397,7 @@ export default {
       thinking: '思考',
       attachmentParsing: '添付ファイルを解析',
       imageAnalysis: '画像解析',
+      generateImage: '画像を生成',
       queryUnderstand: 'クエリを理解',
       queryKnowledgeGraph: 'ナレッジグラフ照会',
       readSkill: 'スキルを読み取り',
@@ -7457,6 +7485,14 @@ export default {
       imagesUnnamed: '添付ファイルの画像',
       image: '{name} の画像 {n}',
       imageUnnamed: '添付ファイルの画像 {n}'
+    },
+    imageGeneration: {
+      prompt: 'プロンプト',
+      revisedPrompt: 'モデルが書き換えたプロンプト',
+      inputImages: '参照画像 {count} 枚',
+      imageLabel: '画像 {n}',
+      open: '拡大表示',
+      empty: '画像が返されませんでした',
     },
     imageView: {
       summary: '「{file}」の画像 {numbers} を確認しました（全 {total} 枚）',
@@ -7787,6 +7823,9 @@ export default {
       imageAnalyzing: '画像の内容を確認中...',
       imageAnalysisDone: '画像の内容を確認しました',
       imageAnalysisFailed: '画像の確認に失敗しました',
+      imageGenerating: '画像を生成中...',
+      imageGenerated: '画像を生成しました：{count} 枚',
+      imageGenerationFailed: '画像の生成に失敗しました',
       attachmentParsing: '添付ファイルを解析中...',
       attachmentParsingDone: '添付ファイルを解析しました',
       attachmentParsingFailed: '添付ファイルの解析に失敗しました',
@@ -7946,6 +7985,12 @@ export default {
       dataAnalysisDesc: 'データファイルを理解し、データ分析を実行します',
       dataSchema: 'データスキーマを表示',
       dataSchemaDesc: '表形式ファイルのメタデータを取得します',
+      generateImage: '画像を生成',
+      generateImageDesc: 'テキストの説明から画像を生成したり、参照画像を編集・合成したりします',
+      imageGenerationModel: '画像生成モデル',
+      imageGenerationModelDesc: '画像の生成に使うモデルです。画像から画像への生成では、ユーザーがチャットでアップロードした画像（「添付ファイルのアップロード」で画像アップロードを有効にする必要があります）か、この会話で生成済みの画像を使います',
+      imageGenerationModelPlaceholder: '画像生成モデルを選択してください',
+      imageGenerationModelRequired: '「画像を生成」が有効です。画像生成モデルを選択してください',
       requiresKb: '（ナレッジベースの設定が必要）',
       requiresRagKb: '（ベクトル/キーワードインデックスが有効なナレッジベースが必要）',
       requiresWikiKb: '（Wikiが有効なナレッジベースが必要）',
@@ -7977,6 +8022,7 @@ export default {
       groupWikiEdit: 'Wiki編集',
       groupWikiIssue: 'Wikiレビュー',
       groupData: 'データ分析',
+      groupImage: '画像',
       writeWarning: 'Wikiの内容を変更します',
       dangerTag: '書き込み',
       statusNoKb: 'ナレッジベースが紐付けられていません',

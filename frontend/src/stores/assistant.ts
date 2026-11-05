@@ -48,7 +48,7 @@ export interface AssistantPageContext {
 
 /** A new model's form, filled in by the assistant; never carries credentials. */
 export interface AssistantModelDraft {
-  type: 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr'
+  type: 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr' | 'image_generation'
   source?: 'remote' | 'local'
   provider?: string
   model_name?: string

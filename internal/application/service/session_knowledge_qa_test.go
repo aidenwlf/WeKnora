@@ -8,6 +8,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/models/asr"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/models/imagegen"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/models/vlm"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -136,6 +137,10 @@ func (s *stubModelService) GetVLMModel(context.Context, string) (vlm.VLM, error)
 }
 
 func (s *stubModelService) GetASRModel(context.Context, string) (asr.ASR, error) {
+	return nil, nil
+}
+
+func (s *stubModelService) GetImageGenerationModel(context.Context, string) (imagegen.ImageGenerator, error) {
 	return nil, nil
 }
 

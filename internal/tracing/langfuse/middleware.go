@@ -98,6 +98,7 @@ func shouldTrace(c *gin.Context) bool {
 		strings.HasPrefix(path, "/api/v1/initialization/embedding/test"),
 		strings.HasPrefix(path, "/api/v1/initialization/rerank/check"),
 		strings.HasPrefix(path, "/api/v1/initialization/asr/check"),
+		strings.HasPrefix(path, "/api/v1/initialization/image-generation/check"),
 		strings.HasPrefix(path, "/api/v1/initialization/multimodal/test"),
 		strings.HasPrefix(path, "/api/v1/initialization/extract/"),
 		strings.HasPrefix(path, "/api/v1/evaluation"):

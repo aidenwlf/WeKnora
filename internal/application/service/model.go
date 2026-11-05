@@ -13,6 +13,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/models/asr"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/models/imagegen"
 	"github.com/Tencent/WeKnora/internal/models/providers"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
@@ -810,6 +811,44 @@ func (s *modelService) GetASRModel(ctx context.Context, modelId string) (asr.ASR
 	}
 
 	return sttModel, nil
+}
+
+// GetImageGenerationModel retrieves and initializes an image generation model instance.
+func (s *modelService) GetImageGenerationModel(ctx context.Context, modelId string) (imagegen.ImageGenerator, error) {
+	if modelId == "" {
+		return nil, errors.New("model ID cannot be empty")
+	}
+
+	tenantID := types.MustTenantIDFromContext(ctx)
+
+	model, err := s.repo.GetByID(ctx, tenantID, modelId)
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{
+			"model_id":  modelId,
+			"tenant_id": tenantID,
+		})
+		return nil, err
+	}
+
+	if model == nil {
+		return nil, ErrModelNotFound
+	}
+	if model.Type != types.ModelTypeImageGeneration {
+		return nil, fmt.Errorf("model %s is a %s model, not an image generation model", model.ID, model.Type)
+	}
+
+	logger.Infof(ctx, "Getting image generation model: %s, source: %s", model.Name, model.Source)
+
+	generator, err := imagegen.New(imagegen.ConfigFromModel(model))
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{
+			"model_id":   model.ID,
+			"model_name": model.Name,
+		})
+		return nil, err
+	}
+
+	return generator, nil
 }
 
 func formatModelInUseMessage(kbCount, agentCount int64, memory bool) string {

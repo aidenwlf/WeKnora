@@ -26,7 +26,8 @@ type ModelSpec struct {
 	Name string `json:"name,omitempty"`
 	// Type is the WeKnora model type this entry describes. Chat models with
 	// image input are still KnowledgeQA; the UI derives VLM eligibility from
-	// Input. Embedding / Rerank / ASR entries exist for the model picker.
+	// Input. Embedding / Rerank / ASR / ImageGeneration entries exist for the
+	// model picker.
 	Type types.ModelType `json:"type,omitempty"`
 	API  api.API         `json:"api,omitempty"`
 	// Aliases are additional ids that resolve to this entry (dated

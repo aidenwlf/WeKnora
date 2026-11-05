@@ -14,11 +14,12 @@ import (
 type ModelType string
 
 const (
-	ModelTypeEmbedding   ModelType = "Embedding"   // Embedding model
-	ModelTypeRerank      ModelType = "Rerank"      // Rerank model
-	ModelTypeKnowledgeQA ModelType = "KnowledgeQA" // KnowledgeQA model
-	ModelTypeVLLM        ModelType = "VLLM"        // VLLM model
-	ModelTypeASR         ModelType = "ASR"         // ASR (Automatic Speech Recognition) model
+	ModelTypeEmbedding       ModelType = "Embedding"       // Embedding model
+	ModelTypeRerank          ModelType = "Rerank"          // Rerank model
+	ModelTypeKnowledgeQA     ModelType = "KnowledgeQA"     // KnowledgeQA model
+	ModelTypeVLLM            ModelType = "VLLM"            // VLLM model
+	ModelTypeASR             ModelType = "ASR"             // ASR (Automatic Speech Recognition) model
+	ModelTypeImageGeneration ModelType = "ImageGeneration" // Text-to-image / image-to-image model
 )
 
 // AllModelTypes returns every model type the server recognises, in a stable
@@ -27,6 +28,7 @@ const (
 func AllModelTypes() []ModelType {
 	return []ModelType{
 		ModelTypeEmbedding, ModelTypeRerank, ModelTypeKnowledgeQA, ModelTypeVLLM, ModelTypeASR,
+		ModelTypeImageGeneration,
 	}
 }
 

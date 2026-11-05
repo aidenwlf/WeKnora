@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/models/imagegen"
 	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -318,6 +319,14 @@ func NewModelResponse(ctx context.Context, m *types.Model) *ModelResponse {
 			Provider: m.Parameters.Provider, Model: m.Name, BaseURL: m.Parameters.BaseURL,
 			ModelType: m.Type, Extra: m.Parameters.ExtraConfig, Override: m.Parameters.Spec,
 		}); err == nil && m.Source == types.ModelSourceRemote {
+			c := resolved.Capabilities()
+			caps = &c
+		}
+	case types.ModelTypeImageGeneration:
+		// Resolved the way the generator is, so input agrees with what
+		// Generate enforces.
+		if resolved, err := imagegen.Resolve(imagegen.ConfigFromModel(m)); err == nil &&
+			m.Source == types.ModelSourceRemote {
 			c := resolved.Capabilities()
 			caps = &c
 		}

@@ -61,6 +61,8 @@ var ToolCapabilityRequirements = map[string]ToolRequirement{
 	"thinking":   {},
 	"todo_write": {},
 	"ask_user":   {},
+	// Image references come from attachment:// and resource://, never knowledge_ids.
+	"generate_image": {},
 
 	// ---- RAG / chunk retrieval (need at least one chunk-indexed KB) ----
 	"search_knowledge":      {AnyOf: []KBCapability{CapVector, CapKeyword}, ConsumesFiles: true},

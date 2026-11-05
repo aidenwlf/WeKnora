@@ -63,6 +63,7 @@ func newGenericProvider() *Definition {
 			types.ModelTypeRerank,
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
+			types.ModelTypeImageGeneration,
 		},
 		ExtraFields: []ExtraField{{
 			Key:    models.ExtraScoreScale,
@@ -101,6 +102,12 @@ func newGenericProvider() *Definition {
 			ModelTypes:   []types.ModelType{types.ModelTypeRerank},
 		}},
 		Compat: VendorCompat{
+			// Images: an uncatalogued gateway model may take reference images
+			// (vLLM-Omni, LiteLLM and NIM all serve /images/edits), so the limit
+			// is OpenAI's 16 and the gateway's own error decides below it.
+			Images: api.ImagesCompat{
+				MaxInputImages: api.Ptr(16),
+			},
 			// Transcriptions keeps the baseline, json by default. The
 			// pre-catalog client always asked for verbose_json, which not every
 			// model or server can produce: OpenAI's gpt-4o transcribers accept

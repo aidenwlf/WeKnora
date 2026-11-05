@@ -272,7 +272,8 @@
                     <BrowserToolDetails v-if="event.tool_name === 'local_browser'" :event="event" />
                     <div v-else-if="resolveToolDisplayType(event)" class="tool-result-wrapper">
                       <ToolResultRenderer :display-type="resolveToolDisplayType(event)" :tool-data="event.tool_data"
-                        :output="toolResultOutput(event)" :arguments="event.arguments" :success="event.success" />
+                        :output="toolResultOutput(event)" :arguments="event.arguments" :success="event.success"
+                        :file-access="protectedFileAccess" :files-ready="protectedImagesReady" />
                     </div>
                     <div v-else-if="event.output" class="tool-output-wrapper">
                       <div class="fallback-header">
@@ -673,7 +674,8 @@
                   <BrowserToolDetails v-if="event.tool_name === 'local_browser'" :event="event" />
                     <div v-else-if="resolveToolDisplayType(event)" class="tool-result-wrapper">
                     <ToolResultRenderer :display-type="resolveToolDisplayType(event)" :tool-data="event.tool_data"
-                      :output="toolResultOutput(event)" :arguments="event.arguments" :success="event.success" />
+                      :output="toolResultOutput(event)" :arguments="event.arguments" :success="event.success"
+                      :file-access="protectedFileAccess" :files-ready="protectedImagesReady" />
                   </div>
 
                   <div v-else-if="event.output" class="tool-output-wrapper">
@@ -928,6 +930,7 @@ const TOOL_NAME_KEYS: Record<string, string> = {
   thinking: 'agentStream.tools.thinking',
   attachment_parsing: 'agentStream.tools.attachmentParsing',
   image_analysis: 'agentStream.tools.imageAnalysis',
+  generate_image: 'agentStream.tools.generateImage',
   query_understand: 'agentStream.tools.queryUnderstand',
   query_knowledge_graph: 'agentStream.tools.queryKnowledgeGraph',
   read_skill: 'agentStream.tools.readSkill',
@@ -1730,6 +1733,17 @@ const isEventExpanded = (eventId: string): boolean => {
   return expandedEvents.value.has(eventId);
 };
 
+// Generated images are the result itself: open each finished call once, so the
+// card is visible without a click. A later collapse by the user sticks.
+const autoExpandedImageCalls = new Set<string>();
+const autoExpandFinishedImageGeneration = (event: any) => {
+  const id = event?.tool_call_id;
+  if (event?.type !== 'tool_call' || event.tool_name !== 'generate_image') return;
+  if (!id || event.pending || event.success === false || autoExpandedImageCalls.has(id)) return;
+  autoExpandedImageCalls.add(id);
+  expandedEvents.value.add(id);
+};
+
 // Track IDs of thinking events that are currently "active" (latest, not yet followed by non-thinking)
 const activeThinkingIds = ref<Set<string>>(new Set());
 // Reactive version number to force template re-evaluation when activeThinkingIds changes
@@ -1787,6 +1801,7 @@ watch([eventStream, readingHistory], ([stream]) => {
     } else if (!isThinking) {
       inTrailingThinking = false;
     }
+    autoExpandFinishedImageGeneration(event);
   }
 
   // Collapse thinking events that were active before but are no longer trailing
@@ -1931,8 +1946,8 @@ const answerFullyRendered = computed(
     isSegmentDone.value &&
     typedAnswer.value.length >= activeAnswerMarkdown.value.length,
 );
-useProtectedImageRecovery(() => rootElement.value, () => protectedFileAccess.value,
-  () => !props.session?.persistence_error && answerFullyRendered.value);
+const protectedImagesReady = computed(() => !props.session?.persistence_error && answerFullyRendered.value);
+useProtectedImageRecovery(() => rootElement.value, () => protectedFileAccess.value, () => protectedImagesReady.value);
 watch(answerFullyRendered, (ready) => {
   emit('render-complete-change', ready);
   if (!ready) return;
@@ -3236,6 +3251,9 @@ const getToolTitle = (event: any): string => {
   if (mcpTitle) return mcpTitle
   const catalogTitle = getCatalogToolTitle(t, event)
   if (catalogTitle) return catalogTitle
+  if (event.pending && event.tool_name === 'generate_image') {
+    return t('agentStream.toolStatus.imageGenerating');
+  }
   if (event.pending) {
     if (event.tool_name === 'image_analysis') {
       return t('agentStream.toolStatus.imageAnalyzing');
@@ -3399,6 +3417,9 @@ const skillScriptCommandLabel = (event: any): string => {
 const getToolDescription = (event: any): string => {
   if (event.tool_name === 'local_browser') return browserToolTitle(t, event);
   if (event.pending) {
+    if (event.tool_name === 'generate_image') {
+      return t('agentStream.toolStatus.imageGenerating');
+    }
     if (event.tool_name === 'image_analysis') {
       return t('agentStream.toolStatus.imageAnalyzing');
     }
@@ -3451,6 +3472,11 @@ const getToolDescription = (event: any): string => {
     return success ? t('agentStream.toolStatus.imageAnalysisDone') : t('agentStream.toolStatus.imageAnalysisFailed');
   } else if (toolName === 'attachment_parsing') {
     return success ? t('agentStream.toolStatus.attachmentParsingDone') : t('agentStream.toolStatus.attachmentParsingFailed');
+  } else if (toolName === 'generate_image') {
+    const count = Array.isArray(event.tool_data?.images) ? event.tool_data.images.length : 0;
+    return success
+      ? t('agentStream.toolStatus.imageGenerated', { count })
+      : t('agentStream.toolStatus.imageGenerationFailed');
   } else if (toolName === 'query_understand') {
     return success ? t('agentStream.toolStatus.queryUnderstandDone') : t('agentStream.toolStatus.calledFailed', { name: getLocalizedToolName(toolName) });
   } else if (toolName === 'shell_exec' || toolName === 'execute_skill_script' || toolName === 'read_skill' || toolName === 'list_sandbox_files' || toolName === 'read_file' || toolName === 'read_sandbox_file' || toolName === 'write_sandbox_file' || toolName === 'edit_sandbox_file') {

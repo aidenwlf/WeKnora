@@ -32,7 +32,12 @@
 //     by the top-level `thinking_budget` (default 16384, minimum 100).
 //     `reasoning_effort` (high | max) exists only on deepseek-v4-pro and
 //     deepseek-v4-flash, which this catalog does not list, so the vendor
-//     level never sends it.
+//     level never sends it;
+//   - images: POST /v2/images/generations in OpenAI's JSON shape, n 1-4
+//     (qwen-image 1), sizes 512-2048, answering data[].url valid 24 h
+//     (https://cloud.baidu.com/doc/qianfan-api/s/8m7u6un8a). /v2/images/edits
+//     takes JSON with the image as a URL or base64 string, not multipart,
+//     so this build is text-to-image only here.
 //
 // Unverified:
 //   - neither a mandatory thinking switch nor a non-stream restriction is
@@ -85,18 +90,23 @@ func newQianfanProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"qianfan.baidubce.com", "baidubce.com"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: QianfanBaseURL,
-			types.ModelTypeEmbedding:   QianfanBaseURL,
-			types.ModelTypeRerank:      QianfanBaseURL,
-			types.ModelTypeVLLM:        QianfanBaseURL,
+			types.ModelTypeKnowledgeQA:     QianfanBaseURL,
+			types.ModelTypeEmbedding:       QianfanBaseURL,
+			types.ModelTypeRerank:          QianfanBaseURL,
+			types.ModelTypeVLLM:            QianfanBaseURL,
+			types.ModelTypeImageGeneration: QianfanBaseURL,
 		},
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
 			types.ModelTypeEmbedding,
 			types.ModelTypeRerank,
 			types.ModelTypeVLLM,
+			types.ModelTypeImageGeneration,
 		},
 		Compat: VendorCompat{
+			Images: api.ImagesCompat{
+				MaxCount: api.Ptr(4),
+			},
 			Embeddings: api.EmbeddingsCompat{
 				// https://cloud.baidu.com/doc/qianfan-api/s/Fm7u3ropn: model,
 				// input, user, encoding_format ("当前只支持float"). The model list

@@ -15,4 +15,6 @@ type VendorCompat struct {
 	Embeddings api.EmbeddingsCompat `json:"embeddings,omitempty"`
 	// Transcriptions is the speech-to-text overlay, likewise one per vendor.
 	Transcriptions api.TranscriptionsCompat `json:"transcriptions,omitempty"`
+	// Images is the image generation overlay, likewise one per vendor.
+	Images api.ImagesCompat `json:"images,omitempty"`
 }

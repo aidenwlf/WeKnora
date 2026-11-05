@@ -10,7 +10,7 @@ func TestBuildAgentToolCatalogDescribesEverySelectableTool(t *testing.T) {
 	catalog := BuildAgentToolCatalog()
 	groups := map[string]bool{
 		ToolGroupBase: true, ToolGroupRAG: true, ToolGroupWikiRead: true,
-		ToolGroupWikiEdit: true, ToolGroupWikiIssue: true, ToolGroupData: true,
+		ToolGroupWikiEdit: true, ToolGroupWikiIssue: true, ToolGroupData: true, ToolGroupImage: true,
 	}
 
 	require.Len(t, catalog.Tools, len(AvailableToolDefinitions()))

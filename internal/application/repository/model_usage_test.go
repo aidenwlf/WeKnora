@@ -245,6 +245,7 @@ func TestListModelUsages_CustomAgent(t *testing.T) {
 			RerankModelID:          modelID,
 			VLMModelID:             modelID,
 			ASRModelID:             modelID,
+			ImageGenerationModelID: modelID,
 			QueryUnderstandModelID: modelID,
 			QuestionSuggestions: &types.QuestionSuggestionConfig{
 				FollowUps: types.FollowUpSuggestionConfig{ModelID: modelID},
@@ -261,6 +262,15 @@ func TestListModelUsages_CustomAgent(t *testing.T) {
 	}
 	require.NoError(t, repo.CreateAgent(ctx, vlmOnly))
 
+	// The SQL scope must find an agent whose only binding is the image model.
+	imageOnly := &types.CustomAgent{
+		ID:       uuid.New().String(),
+		Name:     "Bravo agent",
+		TenantID: 1,
+		Config:   types.CustomAgentConfig{ImageGenerationModelID: modelID},
+	}
+	require.NoError(t, repo.CreateAgent(ctx, imageOnly))
+
 	otherTenant := &types.CustomAgent{
 		ID: uuid.New().String(), Name: "Other tenant", TenantID: 2,
 		Config: types.CustomAgentConfig{ModelID: modelID},
@@ -276,18 +286,21 @@ func TestListModelUsages_CustomAgent(t *testing.T) {
 
 	usages, err := repo.ListModelUsages(ctx, 1, modelID)
 	require.NoError(t, err)
-	require.Len(t, usages, 2)
+	require.Len(t, usages, 3)
 	assert.Equal(t, "Alpha agent", usages[0].Name)
 	assert.Equal(t, []types.ModelUsageBinding{types.ModelUsageBindingVLMModel}, usages[0].Bindings)
-	assert.Equal(t, "Zulu agent", usages[1].Name)
+	assert.Equal(t, "Bravo agent", usages[1].Name)
+	assert.Equal(t, []types.ModelUsageBinding{types.ModelUsageBindingImageGenerationModel}, usages[1].Bindings)
+	assert.Equal(t, "Zulu agent", usages[2].Name)
 	assert.Equal(t, []types.ModelUsageBinding{
 		types.ModelUsageBindingChatModel,
 		types.ModelUsageBindingRerankModel,
 		types.ModelUsageBindingVLMModel,
 		types.ModelUsageBindingASRModel,
+		types.ModelUsageBindingImageGenerationModel,
 		types.ModelUsageBindingQueryUnderstandModel,
 		types.ModelUsageBindingFollowUpModel,
-	}, usages[1].Bindings)
+	}, usages[2].Bindings)
 }
 
 func TestCustomAgentSandboxConfigReferences(t *testing.T) {

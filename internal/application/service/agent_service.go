@@ -270,6 +270,7 @@ func (s *agentService) CreateAgentEngine(
 	s.registerSandboxFileTools(ctx, toolRegistry, sessionID, config)
 	s.registerWebPageFiles(ctx, toolRegistry, config, sessionID, assistantMessageID)
 	attachmentReader := s.registerAttachmentReader(ctx, toolRegistry, config, sessionID)
+	attachGenerateImageAttachments(toolRegistry, attachmentReader)
 	// Advertise cached service summaries independently of @mentions. Concrete
 	// tool definitions are published after describe, before the next model request.
 	toolRegistry.PrepareMCPTools(ctx)
@@ -1513,6 +1514,14 @@ func (s *agentService) registerTools(
 			toolToRegister = tools.NewDataSchemaTool(s.knowledgeService, s.chunkService.GetRepository()).
 				WithSearchTargets(config.SearchTargets)
 			logger.Infof(ctx, "Registered data_schema tool")
+
+		case tools.ToolGenerateImage:
+			// A nil *GenerateImageTool must not become a non-nil types.Tool.
+			tool := s.newGenerateImageTool(ctx, config, sessionID)
+			if tool == nil {
+				continue
+			}
+			toolToRegister = tool
 
 		// Wiki tools — only registered when wiki KBs are detected
 		case tools.ToolWikiReadPage:

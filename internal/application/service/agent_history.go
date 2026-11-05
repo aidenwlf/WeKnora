@@ -75,6 +75,7 @@ func LoadAgentHistory(
 	sessionID string,
 	tokenBudget int,
 	retainRetrievalHistory bool,
+	opts ...AgentHistoryOption,
 ) ([]chat.Message, float64, error) {
 	if tokenBudget <= 0 {
 		return []chat.Message{}, 0, nil
@@ -105,6 +106,9 @@ func LoadAgentHistory(
 		replay       = newHistoryReplay(estimator, 0, retainRetrievalHistory)
 	)
 	replay.locale = types.LanguageFromContextOrDefault(ctx)
+	for _, opt := range opts {
+		opt(replay)
+	}
 	for len(rows) < agentHistoryMaxRows {
 		page, err := messageRepo.ListMessagesBySessionBeforeCursor(
 			ctx, sessionID, before, beforeID, agentHistoryPageSize,
@@ -265,6 +269,9 @@ type historyReplay struct {
 	tokens                 map[string]int
 	// full holds stored rows by ID until their turn is replayed.
 	full map[string]*types.Message
+	// userImageRefs names each stored user image so generate_image can be
+	// asked to edit it; off, prompts stay as they were.
+	userImageRefs bool
 }
 
 func newHistoryReplay(
@@ -471,12 +478,18 @@ func buildTurnBodyMessages(assistant *types.Message, midRunUsers []*types.Messag
 // an image or file has no stored text; replayed empty, the sanitizer would drop
 // it and merge the answers on either side.
 func (r *historyReplay) openingUserMessage(m *types.Message) chat.Message {
+	var msg chat.Message
 	if strings.TrimSpace(m.Content) == "" && (len(m.Images) > 0 || len(m.Attachments) > 0) {
 		asked := *m
 		asked.Content = types.UploadOnlyQuestion(r.locale)
-		return buildUserHistoryMessage(&asked)
+		msg = buildUserHistoryMessage(&asked)
+	} else {
+		msg = buildUserHistoryMessage(m)
 	}
-	return buildUserHistoryMessage(m)
+	if r.userImageRefs {
+		msg.Content += userImageReferences(m.Images)
+	}
+	return msg
 }
 
 // buildUserHistoryMessage converts a stored user message into the chat.Message

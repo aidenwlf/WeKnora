@@ -95,6 +95,8 @@ test('extraFieldsForModelType honours model_types in either naming scheme', () =
 test('normalizeModelType maps backend names onto editor names', () => {
   assert.equal(normalizeModelType('KnowledgeQA'), 'chat')
   assert.equal(normalizeModelType('VLLM'), 'vllm')
+  assert.equal(normalizeModelType('ImageGeneration'), 'image_generation')
+  assert.equal(normalizeModelType('image_generation'), 'image_generation')
   assert.equal(normalizeModelType('embedding'), 'embedding')
   assert.equal(normalizeModelType(''), '')
 })

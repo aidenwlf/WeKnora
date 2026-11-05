@@ -21,8 +21,19 @@
 //     gpt-5* / o1* / o3* / o4* families set supports_temperature false;
 //   - `store: false` is sent so completions are not retained, and
 //     `prompt_cache_key` steers cache routing; usage reports cached tokens;
-//   - chat, embedding, VLM and ASR are served from https://api.openai.com/v1;
-//     there is no rerank API;
+//   - chat, embedding, VLM, ASR and image generation are served from
+//     https://api.openai.com/v1; there is no rerank API;
+//   - images: POST /images/generations (JSON) and POST /images/edits
+//     (multipart image[], "up to 16" reference images, png/webp/jpg under
+//     50 MB each), n 1-10, answering data[].b64_json; GPT Image models never
+//     answer a url and response_format is "unsupported for GPT image
+//     models", so none is sent
+//     (https://developers.openai.com/api/reference/resources/images/methods/generate,
+//     https://developers.openai.com/api/reference/cli/resources/images/methods/edit).
+//     gpt-image-1.5 and gpt-image-1-mini take a closed size list; gpt-image-2
+//     and later take free WxH within pixel limits, so their entries name
+//     none. dall-e-2, dall-e-3 and gpt-image-1 are shut down
+//     (https://developers.openai.com/api/docs/deprecations) and not listed;
 //   - requests that go to api.openai.com itself use the Responses protocol
 //     (https://developers.openai.com/api/docs/api-reference/responses),
 //     OpenAI's primary API where reasoning items and encrypted reasoning are
@@ -80,10 +91,11 @@ func newOpenaiProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"api.openai.com"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: OpenaiBaseURL,
-			types.ModelTypeEmbedding:   OpenaiBaseURL,
-			types.ModelTypeVLLM:        OpenaiBaseURL,
-			types.ModelTypeASR:         OpenaiBaseURL,
+			types.ModelTypeKnowledgeQA:     OpenaiBaseURL,
+			types.ModelTypeEmbedding:       OpenaiBaseURL,
+			types.ModelTypeVLLM:            OpenaiBaseURL,
+			types.ModelTypeASR:             OpenaiBaseURL,
+			types.ModelTypeImageGeneration: OpenaiBaseURL,
 		},
 		// No rerank: OpenAI's API has no rerank endpoint — the reference
 		// index (https://developers.openai.com/api/llms.txt) does not mention
@@ -94,8 +106,12 @@ func newOpenaiProvider() *Definition {
 			types.ModelTypeEmbedding,
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
+			types.ModelTypeImageGeneration,
 		},
 		Compat: VendorCompat{
+			Images: api.ImagesCompat{
+				MaxInputImages: api.Ptr(16),
+			},
 			Transcriptions: api.TranscriptionsCompat{
 				// The transcription reference (URL in openaitranscriptions):
 				// response_format differs per model — "For gpt-4o-transcribe

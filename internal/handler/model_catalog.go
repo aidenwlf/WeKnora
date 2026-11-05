@@ -72,7 +72,8 @@ type ModelCatalogEntryDTO struct {
 }
 
 // modelTypeToFrontend 将后端 ModelType 转换为前端兼容的字符串
-// KnowledgeQA -> chat, Embedding -> embedding, Rerank -> rerank, VLLM -> vllm
+// KnowledgeQA -> chat, Embedding -> embedding, Rerank -> rerank, VLLM -> vllm, ASR -> asr,
+// ImageGeneration -> image_generation
 func modelTypeToFrontend(mt types.ModelType) string {
 	switch mt {
 	case types.ModelTypeKnowledgeQA:
@@ -85,6 +86,8 @@ func modelTypeToFrontend(mt types.ModelType) string {
 		return "vllm"
 	case types.ModelTypeASR:
 		return "asr"
+	case types.ModelTypeImageGeneration:
+		return "image_generation"
 	default:
 		return string(mt)
 	}
@@ -190,7 +193,7 @@ func providerDTO(v *modelruntime.Provider, modelType types.ModelType, includeMod
 // @Tags         模型管理
 // @Accept       json
 // @Produce      json
-// @Param        model_type  query     string  false  "模型类型 (chat, embedding, rerank, vllm, asr)"  Enums(chat,embedding,rerank,vllm,asr)  extensions(x-agent)
+// @Param        model_type  query     string  false  "模型类型 (chat, embedding, rerank, vllm, asr, image_generation)"  Enums(chat,embedding,rerank,vllm,asr,image_generation)  extensions(x-agent)
 // @Success      200         {object}  handler.DataResponse{data=[]handler.ModelProviderDTO}  "厂商列表"
 // @Security     Bearer
 // @Security     ApiKeyAuth
@@ -250,7 +253,7 @@ func parseProviderModelType(c *gin.Context, modelType string) (types.ModelType, 
 // @Accept       json
 // @Produce      json
 // @Param        provider    path      string  true   "厂商标识"  extensions(x-agent=provider)
-// @Param        model_type  query     string  false  "模型类型 (chat, embedding, rerank, vllm, asr)"  Enums(chat,embedding,rerank,vllm,asr)  extensions(x-agent)
+// @Param        model_type  query     string  false  "模型类型 (chat, embedding, rerank, vllm, asr, image_generation)"  Enums(chat,embedding,rerank,vllm,asr,image_generation)  extensions(x-agent)
 // @Param        keyword     query     string  false  "按模型 ID 或名称过滤（不区分大小写）"  extensions(x-agent)
 // @Success      200         {object}  handler.DataResponse{data=handler.ModelProviderDTO}  "厂商详情"
 // @Failure      400         {object}  errors.AppError  "请求参数错误"

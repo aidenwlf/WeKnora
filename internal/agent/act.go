@@ -183,6 +183,7 @@ var toolDisplayNames = map[string]string{
 	agenttools.ToolDataSchema:                "查看数据结构",
 	agenttools.ToolWebSearch:                 "搜索网页",
 	agenttools.ToolWebFetch:                  "获取网页",
+	agenttools.ToolGenerateImage:             "生成图片",
 	agenttools.LegacyToolExecuteSkillScript:  "执行技能脚本",
 	agenttools.LegacyToolReadSkill:           "读取技能",
 	agenttools.ToolReadFile:                  "读取文件",

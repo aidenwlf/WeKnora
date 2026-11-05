@@ -6,6 +6,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/models/asr"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/models/imagegen"
 	"github.com/Tencent/WeKnora/internal/models/rerank"
 	"github.com/Tencent/WeKnora/internal/models/vlm"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -48,6 +49,9 @@ type ModelService interface {
 	GetVLMModel(ctx context.Context, modelId string) (vlm.VLM, error)
 	// GetASRModel gets an automatic speech recognition model
 	GetASRModel(ctx context.Context, modelId string) (asr.ASR, error)
+	// GetImageGenerationModel gets an image generation model. It refuses a
+	// row whose type is not ImageGeneration.
+	GetImageGenerationModel(ctx context.Context, modelId string) (imagegen.ImageGenerator, error)
 }
 
 // ModelRepository defines the model repository interface

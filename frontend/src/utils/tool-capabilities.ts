@@ -91,6 +91,9 @@ export const TOOL_CAPABILITY_REQUIREMENTS: Record<string, ToolRequirement> = {
   // ---- Data analysis (reads table summary/column chunks produced by RAG ingest) ----
   data_analysis: { anyOf: ['vector', 'keyword'], consumesFiles: true },
   data_schema:   { anyOf: ['vector', 'keyword'], consumesFiles: true },
+
+  // ---- Image generation (reads chat images, never knowledge-base files) ----
+  generate_image: { consumesFiles: false },
 };
 
 /**

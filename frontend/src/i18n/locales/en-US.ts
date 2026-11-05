@@ -52,6 +52,7 @@ export default {
     "dimension": "Vector dimension",
     "dimensionDesc": "Prefilled when this embedding model is added; must match what the model actually returns.",
     "inputDesc": "Input types the model accepts. Models with image input can be used as vision models.",
+    "imageGenerationInputDesc": "Input types the image model accepts. Tick Image if it can edit or combine reference images (image-to-image).",
     "thinkingLevels": "Thinking levels",
     "thinkingLevelsDesc": "Reasoning intensities offered in chat. Without Off, the model always thinks.",
     "levelsNeedReasoning": "Turn on Reasoning to set levels.",
@@ -3118,7 +3119,6 @@ export default {
     error: 'Error',
     success: 'Success',
     failed: 'Failed',
-    info: 'Information',
     selectAll: 'Select All',
     yes: 'Yes',
     no: 'No',
@@ -3128,10 +3128,8 @@ export default {
     finish: 'Finish',
     all: 'All',
     clear: 'Clear',
-    website: 'Official Website',
     clawhubSkill: 'Claw Skill',
     github: 'GitHub',
-    githubStarTip: 'Open the repo on GitHub — star it if you find it useful',
     on: 'On',
     off: 'Off',
     confirmDelete: 'Confirm Delete',
@@ -3334,6 +3332,11 @@ export default {
       toggleOff: 'Disable Web Search',
       notConfigured: 'Web search engine not configured'
     },
+    imageGeneration: {
+      label: 'Image generation',
+      toggleOn: 'Turn on image generation',
+      toggleOff: 'Turn off image generation'
+    },
     knowledgeBase: 'Knowledge Base',
     knowledgeBaseWithCount: 'Knowledge Base ({count})',
     notConfigured: 'Not configured',
@@ -3368,6 +3371,8 @@ export default {
       webSearchNotConfigured: 'Web search engine is not configured. Please configure a provider and credentials in settings.',
       webSearchEnabled: 'Web search enabled',
       webSearchDisabled: 'Web search disabled',
+      imageGenerationEnabled: 'Image generation on',
+      imageGenerationDisabled: 'Image generation off',
       sessionMissing: 'Session ID does not exist',
       messageMissing: 'Unable to get message ID. Please refresh the page and try again.',
       stopSuccess: 'Generation stopped',
@@ -5522,6 +5527,7 @@ export default {
           rerank: 'Configure models for result re-ranking',
           vllm: 'Configure vision-language models for multimodal understanding',
           asr: 'Configure speech-to-text models for audio transcription',
+          image_generation: 'Configure image generation models for text-to-image and image-to-image (OpenAI-compatible Images API)',
           default: 'Configure model information'
         },
         modelNamePlaceholder: {
@@ -5529,7 +5535,8 @@ export default {
           remote: 'e.g. gpt-4, claude-3-opus',
           localVllm: 'e.g. llava:latest',
           remoteVllm: 'e.g. gpt-4-vision-preview',
-          remoteAsr: 'e.g. whisper-1'
+          remoteAsr: 'e.g. whisper-1',
+          remoteImageGeneration: 'e.g. gpt-image-1'
         },
         baseUrlLabel: 'Base URL',
         displayNameLabel: 'Display name (optional)',
@@ -5538,6 +5545,8 @@ export default {
         baseUrlPlaceholder: 'e.g. https://api.openai.com/v1',
         baseUrlPlaceholderVllm: 'e.g. http://localhost:11434/v1',
         baseUrlPlaceholderAsr: 'e.g. https://api.openai.com/v1',
+        baseUrlPlaceholderImageGeneration: 'e.g. https://api.openai.com/v1',
+        imageGenerationTestCost: 'Testing the connection generates one real image and is billed as one generation.',
         apiKeyOptional: 'API Key (optional)',
         apiKeyPlaceholder: 'Enter API Key',
         customHeadersLabel: 'Custom Request Headers (optional)',
@@ -5620,7 +5629,6 @@ export default {
       title: 'General Settings',
       allSettings: 'All Settings',
       personalSettings: 'Personal Settings',
-      helpAndDocs: 'Help & Documentation',
       description: 'Configure language, appearance and other basic options',
       settings: 'Settings',
       close: 'Close Settings'
@@ -5880,7 +5888,8 @@ export default {
         embedding: 'Embedding',
         rerank: 'ReRank',
         vllm: 'Vision',
-        asr: 'Speech'
+        asr: 'Speech',
+        image_generation: 'Image generation'
       },
       actions: {
         addModel: 'Add Model',
@@ -5910,6 +5919,12 @@ export default {
         title: 'VLLM Vision Models',
         desc: 'Configure vision-language models for multimodal understanding',
         empty: 'No VLLM models'
+      },
+      image_generation: {
+        title: 'Image Generation Models',
+        desc: 'Configure image generation models for text-to-image and image-to-image (OpenAI-compatible Images API)',
+        empty: 'No image generation models',
+        imageToImage: 'Supports image-to-image'
       },
       asr: {
         title: 'ASR Speech Models',
@@ -5965,6 +5980,7 @@ export default {
           rerank_model: 'Re-ranking model',
           query_understand_model: 'Query understanding model',
           follow_up_model: 'Follow-up model',
+          image_generation_model: 'Image generation model',
           extract_model: 'Memory extraction model',
           unknown: 'Other model setting'
         }
@@ -5987,6 +6003,8 @@ export default {
         embeddingPlaceholder: 'Enter text to generate an embedding',
         vlmPrompt: 'Image prompt',
         vlmPromptPlaceholder: 'For example: Describe this image in detail',
+        imagePrompt: 'Generation prompt',
+        imagePromptPlaceholder: 'For example: A red fox running through snow, watercolor style',
         documents: 'Candidate documents',
         documentsPlaceholder: 'Enter one candidate document per line',
         documentsHint: 'Each non-empty line is sent as a separate document to the ReRank model',
@@ -6001,6 +6019,13 @@ export default {
         similarityImageCandidate: 'Image',
         audioFile: 'Audio file',
         chooseFile: 'Choose file',
+        referenceImages: 'Reference images (optional)',
+        referenceImagesHint: 'Leave empty for text-to-image. Uploaded images are edited or combined (image-to-image); you can pick several.',
+        imageSize: 'Image size',
+        imageSizePlaceholder: 'e.g. 1024x1024; empty uses the model default',
+        imageCount: 'Number of images',
+        previewImage: 'View full size',
+        revisedPrompt: 'Prompt as rewritten by the model',
         parameters: 'Request parameters',
         systemPrompt: 'System Prompt',
         systemPromptPlaceholder: 'Optional system prompt',
@@ -6023,7 +6048,9 @@ export default {
           reasoningChars: 'Reasoning chars',
           reasoningReturned: 'Reasoning returned',
           textChars: 'Transcript chars',
-          segmentCount: 'Segment count'
+          segmentCount: 'Segment count',
+          imageCount: 'Images generated',
+          inputImageCount: 'Reference images'
         }
       }
     },
@@ -7370,6 +7397,7 @@ export default {
       thinking: 'Thinking',
       attachmentParsing: 'Parsing Attachment',
       imageAnalysis: 'Image Analysis',
+      generateImage: 'Generate Image',
       queryUnderstand: 'Understand Query',
       queryKnowledgeGraph: 'Knowledge Graph Query',
       readSkill: 'Read Skill',
@@ -7457,6 +7485,14 @@ export default {
       imagesUnnamed: 'attachment images',
       image: 'image {n} of {name}',
       imageUnnamed: 'attachment image {n}'
+    },
+    imageGeneration: {
+      prompt: 'Prompt',
+      revisedPrompt: 'Prompt as rewritten by the model',
+      inputImages: 'Reference images: {count}',
+      imageLabel: 'Image {n}',
+      open: 'View full size',
+      empty: 'No image was returned',
     },
     imageView: {
       summary: 'Viewed image {numbers} of {total} in "{file}"',
@@ -7787,6 +7823,9 @@ export default {
       imageAnalyzing: 'Viewing image content...',
       imageAnalysisDone: 'Image content viewed',
       imageAnalysisFailed: 'Image viewing failed',
+      imageGenerating: 'Generating image...',
+      imageGenerated: 'Images generated: {count}',
+      imageGenerationFailed: 'Image generation failed',
       attachmentParsing: 'Parsing attachments...',
       attachmentParsingDone: 'Attachments parsed',
       attachmentParsingFailed: 'Attachment parsing failed',
@@ -7946,6 +7985,12 @@ export default {
       dataAnalysisDesc: 'Understand data files and perform data analysis',
       dataSchema: 'View Data Schema',
       dataSchemaDesc: 'Get metadata of tabular files',
+      generateImage: 'Generate Image',
+      generateImageDesc: 'Create images from a text description, or edit and combine reference images',
+      imageGenerationModel: 'Image generation model',
+      imageGenerationModelDesc: 'Model used to generate images. Image-to-image uses images the user uploads in the chat (enable image upload under Attachment Upload) or images generated earlier in the conversation',
+      imageGenerationModelPlaceholder: 'Select an image generation model',
+      imageGenerationModelRequired: 'Generate Image is enabled. Select an image generation model',
       requiresKb: '(requires knowledge base configuration)',
       requiresRagKb: '(requires a KB with vector/keyword indexing enabled)',
       requiresWikiKb: '(requires a Wiki-enabled knowledge base)',
@@ -7977,6 +8022,7 @@ export default {
       groupWikiEdit: 'Wiki Edit',
       groupWikiIssue: 'Wiki Review',
       groupData: 'Data Analysis',
+      groupImage: 'Image',
       writeWarning: 'Mutates Wiki content',
       dangerTag: 'Write',
       statusNoKb: 'No knowledge base is linked',

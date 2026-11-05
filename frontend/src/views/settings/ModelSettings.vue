@@ -164,6 +164,13 @@
                     <t-icon name="image" size="12px" />
                   </span>
                 </template>
+                <template v-if="model._modelType === 'image_generation' && model.capabilities?.input?.includes('image')">
+                  <span class="model-card__sep">·</span>
+                  <span class="model-card__vision" :title="$t('modelSettings.image_generation.imageToImage')"
+                    :aria-label="$t('modelSettings.image_generation.imageToImage')">
+                    <t-icon name="image" size="12px" />
+                  </span>
+                </template>
               </p>
             </div>
           </div>
@@ -358,7 +365,7 @@ const providersStore = useModelProvidersStore()
 const router = useRouter()
 const route = useRoute()
 const assistant = useAssistantStore()
-type ModelType = 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr'
+type ModelType = 'chat' | 'embedding' | 'rerank' | 'vllm' | 'asr' | 'image_generation'
 type FilterType = 'all' | ModelType
 
 const showDialog = ref(false)
@@ -373,7 +380,7 @@ const loading = ref(true)
 const activeTypeFilter = ref<FilterType>('all')
 const modelQuery = ref('')
 
-const MODEL_TAB_TYPES: ModelType[] = ['chat', 'embedding', 'rerank', 'vllm', 'asr']
+const MODEL_TAB_TYPES: ModelType[] = ['chat', 'embedding', 'rerank', 'vllm', 'asr', 'image_generation']
 const KNOWLEDGE_BASE_EDITOR_HOST_ROUTES = new Set([
   'home',
   'knowledgeBaseList',
@@ -402,7 +409,8 @@ const backendTypeToModelType: Record<string, ModelType> = {
   Embedding: 'embedding',
   Rerank: 'rerank',
   VLLM: 'vllm',
-  ASR: 'asr'
+  ASR: 'asr',
+  ImageGeneration: 'image_generation',
 }
 
 // 将后端模型格式转换为旧的前端格式（附带 _modelType 便于渲染）
@@ -466,6 +474,7 @@ const typeIcon = (type: ModelType): string => {
     rerank: 'filter-sort',
     vllm: 'image',
     asr: 'sound',
+    image_generation: 'palette',
   }
   return map[type]
 }
@@ -476,14 +485,15 @@ const typeLabel = (type: ModelType) => {
     embedding: t('modelSettings.typeShort.embedding'),
     rerank: t('modelSettings.typeShort.rerank'),
     vllm: t('modelSettings.typeShort.vllm'),
-    asr: t('modelSettings.typeShort.asr')
+    asr: t('modelSettings.typeShort.asr'),
+    image_generation: t('modelSettings.typeShort.image_generation'),
   }
   return map[type]
 }
 
 const sourceLabel = (type: ModelType) => {
-  // vllm / asr 的 remote 文案特殊，其余走通用 remote 文案
-  if (type === 'vllm' || type === 'asr') {
+  // vllm / asr / 生图 的 remote 文案特殊，其余走通用 remote 文案
+  if (type === 'vllm' || type === 'asr' || type === 'image_generation') {
     return t('modelSettings.source.openaiCompatible')
   }
   return t('modelSettings.source.remote')
@@ -550,7 +560,8 @@ const emptyHint = computed(() => {
     embedding: t('modelSettings.embedding.empty'),
     rerank: t('modelSettings.rerank.empty'),
     vllm: t('modelSettings.vllm.empty'),
-    asr: t('modelSettings.asr.empty')
+    asr: t('modelSettings.asr.empty'),
+    image_generation: t('modelSettings.image_generation.empty'),
   }
   return map[activeTypeFilter.value as ModelType]
 })
@@ -914,13 +925,14 @@ const copyModel = async (_type: ModelType, modelId: string) => {
 }
 
 // 获取后端模型类型
-function getModelType(type: ModelType): 'KnowledgeQA' | 'Embedding' | 'Rerank' | 'VLLM' | 'ASR' {
+function getModelType(type: ModelType): ModelConfig['type'] {
   const typeMap = {
     chat: 'KnowledgeQA' as const,
     embedding: 'Embedding' as const,
     rerank: 'Rerank' as const,
     vllm: 'VLLM' as const,
-    asr: 'ASR' as const
+    asr: 'ASR' as const,
+    image_generation: 'ImageGeneration' as const,
   }
   return typeMap[type]
 }
@@ -1244,7 +1256,7 @@ useAssistantDataChange(() => { void loadModels() }, { areas: ['model'] })
   .provider-card-badge-color(#0052d9);
 }
 
-// 5 种类型的徽章配色 —— 比原 tag 配色饱和度低一档，避免炫光
+// 各类型的徽章配色 —— 比原 tag 配色饱和度低一档，避免炫光
 .model-card--chat .model-card__badge {
   .provider-card-badge-color(#0052d9);
 }
@@ -1263,6 +1275,10 @@ useAssistantDataChange(() => { void loadModels() }, { areas: ['model'] })
 
 .model-card--asr .model-card__badge {
   .provider-card-badge-color(#118053);
+}
+
+.model-card--image_generation .model-card__badge {
+  .provider-card-badge-color(#b5307e);
 }
 
 .model-card__body {

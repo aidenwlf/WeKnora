@@ -52,6 +52,7 @@ export default {
     "dimension": "Размерность векторов",
     "dimensionDesc": "Подставляется при добавлении этой модели эмбеддингов; должна совпадать с фактическим выводом модели.",
     "inputDesc": "Типы входных данных модели. С изображениями модель можно использовать как визуальную.",
+    "imageGenerationInputDesc": "Типы входных данных модели генерации изображений. Отметьте изображения, если модель умеет редактировать или объединять референсы (image-to-image).",
     "thinkingLevels": "Уровни рассуждений",
     "thinkingLevelsDesc": "Интенсивность рассуждений, доступная в чате. Без «Выкл» модель рассуждает всегда.",
     "levelsNeedReasoning": "Включите «Рассуждения», чтобы настроить уровни.",
@@ -1777,6 +1778,12 @@ export default {
       dataAnalysisDesc: 'Понимание файлов данных и проведение анализа',
       dataSchema: 'Схема данных',
       dataSchemaDesc: 'Получение метаинформации табличных файлов',
+      generateImage: 'Создание изображений',
+      generateImageDesc: 'Создаёт изображения по текстовому описанию или редактирует и объединяет референсные изображения',
+      imageGenerationModel: 'Модель генерации изображений',
+      imageGenerationModelDesc: 'Модель для создания изображений. Для генерации по изображению используются картинки, загруженные пользователем в чат (включите загрузку изображений в разделе «Загрузка вложений»), или изображения, уже созданные в этом диалоге',
+      imageGenerationModelPlaceholder: 'Выберите модель генерации изображений',
+      imageGenerationModelRequired: 'Включён инструмент «Создание изображений». Выберите модель генерации изображений',
       requiresKb: '(требуется настройка базы знаний)',
       requiresRagKb: '(требуется база знаний с включённым векторным/ключевым индексом)',
       requiresWikiKb: '(требуется база знаний с включённой Wiki)',
@@ -1808,6 +1815,7 @@ export default {
       groupWikiEdit: 'Редактирование Wiki',
       groupWikiIssue: 'Проверка Wiki',
       groupData: 'Анализ данных',
+      groupImage: 'Изображения',
       writeWarning: 'Изменяет содержимое Wiki',
       dangerTag: 'Запись',
       statusNoKb: 'База знаний не подключена',
@@ -1992,6 +2000,9 @@ export default {
       imageAnalyzing: 'Анализ изображения...',
       imageAnalysisDone: 'Анализ изображения завершён',
       imageAnalysisFailed: 'Ошибка анализа изображения',
+      imageGenerating: 'Создание изображения...',
+      imageGenerated: 'Создано изображений: {count}',
+      imageGenerationFailed: 'Не удалось создать изображение',
       attachmentParsing: 'Разбор вложений...',
       attachmentParsingDone: 'Вложения разобраны',
       attachmentParsingFailed: 'Ошибка разбора вложений',
@@ -2077,6 +2088,7 @@ export default {
       thinking: 'Размышление',
       attachmentParsing: 'Разбор вложения',
       imageAnalysis: 'Анализ изображения',
+      generateImage: 'Создание изображений',
       queryUnderstand: 'Понимание запроса',
       queryKnowledgeGraph: 'Запрос графа знаний',
       readSkill: 'Чтение навыка',
@@ -2164,6 +2176,14 @@ export default {
       imagesUnnamed: 'изображения вложения',
       image: 'изображение {n} в {name}',
       imageUnnamed: 'изображение вложения {n}'
+    },
+    imageGeneration: {
+      prompt: 'Запрос',
+      revisedPrompt: 'Запрос, переписанный моделью',
+      inputImages: 'Референсных изображений: {count}',
+      imageLabel: 'Изображение {n}',
+      open: 'Открыть в полном размере',
+      empty: 'Изображения не получены',
     },
     imageView: {
       summary: 'Просмотрены изображения {numbers} из {total} в «{file}»',
@@ -3741,6 +3761,7 @@ export default {
         rerank_model: 'Модель реранжирования',
         query_understand_model: 'Модель понимания запроса',
         follow_up_model: 'Модель уточняющих вопросов',
+        image_generation_model: 'Модель генерации изображений',
         extract_model: 'Модель извлечения памяти',
         unknown: 'Другая настройка модели'
       }
@@ -3763,6 +3784,8 @@ export default {
       embeddingPlaceholder: 'Введите текст для создания embedding',
       vlmPrompt: 'Промпт для изображения',
       vlmPromptPlaceholder: 'Например: подробно опишите это изображение',
+      imagePrompt: 'Запрос для генерации',
+      imagePromptPlaceholder: 'Например: рыжая лиса бежит по снегу, акварель',
       documents: 'Кандидаты документов',
       documentsPlaceholder: 'Введите один документ на строку',
       documentsHint: 'Каждая непустая строка отправляется в модель ReRank как отдельный документ',
@@ -3777,6 +3800,13 @@ export default {
       similarityImageCandidate: 'Изображение',
       audioFile: 'Аудиофайл',
       chooseFile: 'Выбрать файл',
+      referenceImages: 'Референсные изображения (необязательно)',
+      referenceImagesHint: 'Без изображений — генерация по тексту. Загруженные изображения редактируются или объединяются (image-to-image); можно выбрать несколько',
+      imageSize: 'Размер изображения',
+      imageSizePlaceholder: 'например: 1024x1024; пусто — значение модели по умолчанию',
+      imageCount: 'Количество изображений',
+      previewImage: 'Открыть в полном размере',
+      revisedPrompt: 'Запрос, переписанный моделью',
       parameters: 'Параметры запроса',
       systemPrompt: 'System Prompt',
       systemPromptPlaceholder: 'Необязательно: системный промпт',
@@ -3799,7 +3829,9 @@ export default {
         reasoningChars: 'Символов рассуждения',
         reasoningReturned: 'Рассуждение возвращено',
         textChars: 'Символов транскрипции',
-        segmentCount: 'Количество сегментов'
+        segmentCount: 'Количество сегментов',
+        imageCount: 'Создано изображений',
+        inputImageCount: 'Референсов'
       }
     },
     builtinModels: {
@@ -3826,6 +3858,12 @@ export default {
       builtinCannotCopy: 'Встроенные модели нельзя копировать',
       copied: 'Модель скопирована',
       copyFailed: 'Не удалось скопировать модель'
+    },
+    image_generation: {
+      title: 'Модели генерации изображений',
+      desc: 'Модели для генерации изображений по тексту и по референсам (OpenAI-совместимый Images API)',
+      empty: 'Нет моделей генерации изображений',
+      imageToImage: 'Поддерживает image-to-image'
     },
     asr: {
       title: 'ASR модели речи',
@@ -3866,7 +3904,8 @@ export default {
       embedding: 'Embedding',
       rerank: 'ReRank',
       vllm: 'Зрение',
-      asr: 'Речь'
+      asr: 'Речь',
+      image_generation: 'Изображения'
     }
   },
   mcpSettings: {
@@ -4120,7 +4159,6 @@ export default {
     title: 'Общие настройки',
     allSettings: 'Все настройки',
     personalSettings: 'Личные настройки',
-    helpAndDocs: 'Справка и документация',
     description: 'Настройка языка, внешнего вида и других базовых параметров',
     settings: 'Настройки',
     close: 'Закрыть настройки'
@@ -4233,6 +4271,8 @@ export default {
       baseUrlPlaceholder: 'например: https://api.openai.com/v1',
       baseUrlPlaceholderVllm: 'например: http://localhost:11434/v1',
       baseUrlPlaceholderAsr: 'например: https://api.openai.com/v1',
+      baseUrlPlaceholderImageGeneration: 'например: https://api.openai.com/v1',
+      imageGenerationTestCost: 'Проверка подключения создаёт одно настоящее изображение и оплачивается как одна генерация.',
       apiKeyOptional: 'API Key (опционально)',
       apiKeyPlaceholder: 'Введите API Key',
       customHeadersLabel: 'Пользовательские заголовки запроса (опционально)',
@@ -4301,7 +4341,8 @@ export default {
         remote: 'например: gpt-4, claude-3-opus',
         localVllm: 'например: llava:latest',
         remoteVllm: 'например: gpt-4-vision-preview',
-        remoteAsr: 'например: whisper-1'
+        remoteAsr: 'например: whisper-1',
+        remoteImageGeneration: 'например: gpt-image-1'
       },
       description: {
         chat: 'Настройте языковую модель для диалогов',
@@ -4309,6 +4350,7 @@ export default {
         rerank: 'Настройте модель для повторного ранжирования результатов',
         vllm: 'Настройте визуально-языковую модель для мультимодального понимания',
         asr: 'Настройте модель распознавания речи для транскрибации аудио',
+        image_generation: 'Настройте модель генерации изображений по тексту и по референсам (OpenAI-совместимый Images API)',
         default: 'Настройте информацию о модели'
       }
     }
@@ -6416,6 +6458,8 @@ export default {
       webSearchNotConfigured: 'Веб-поиск не настроен. Сначала выберите провайдера и настройте ключи в разделе настроек.',
       webSearchEnabled: 'Веб-поиск включён',
       webSearchDisabled: 'Веб-поиск выключен',
+      imageGenerationEnabled: 'Генерация изображений включена',
+      imageGenerationDisabled: 'Генерация изображений выключена',
       sessionMissing: 'ID сессии не существует',
       messageMissing: 'Не удалось получить ID сообщения. Обновите страницу и попробуйте снова.',
       stopSuccess: 'Генерация остановлена',
@@ -6425,6 +6469,11 @@ export default {
       toggleOn: 'Включить веб-поиск',
       toggleOff: 'Выключить веб-поиск',
       notConfigured: 'Веб-поиск не настроен'
+    },
+    imageGeneration: {
+      label: 'Генерация изображений',
+      toggleOn: 'Включить генерацию изображений',
+      toggleOff: 'Выключить генерацию изображений'
     }
   },
   manualEditor: {
@@ -6617,7 +6666,6 @@ export default {
     error: 'Ошибка',
     success: 'Успешно',
     failed: 'Ошибка',
-    info: 'Информация',
     selectAll: 'Выбрать все',
     yes: 'Да',
     no: 'Нет',
@@ -6627,10 +6675,8 @@ export default {
     finish: 'Завершить',
     all: 'Все',
     clear: 'Очистить',
-    website: 'Официальный сайт',
     clawhubSkill: 'Claw Skill',
     github: 'GitHub',
-    githubStarTip: 'Открыть репозиторий на GitHub — поставьте Star, если проект полезен',
     on: 'Вкл',
     off: 'Выкл',
     confirmDelete: 'Подтвердить удаление',

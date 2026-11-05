@@ -95,6 +95,9 @@ func normalizeProvider(p *Provider) {
 	if p.TranscriptionAPI == "" && p.SupportsType(types.ModelTypeASR) {
 		p.TranscriptionAPI = api.TranscriptionOpenAI
 	}
+	if p.ImageGenerationAPI == "" && p.SupportsType(types.ModelTypeImageGeneration) {
+		p.ImageGenerationAPI = api.ImageGenerationOpenAI
+	}
 	entries := p.Models()
 	for i := range entries {
 		if entries[i].Type == "" {

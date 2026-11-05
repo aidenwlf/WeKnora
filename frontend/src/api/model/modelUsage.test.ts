@@ -110,6 +110,14 @@ test('keeps navigation and localization stable for all resource kinds', () => {
     modelUsageResourceRoute('agent', 'agent-1', ['follow_up_model']),
     { path: '/platform/agents', query: { edit: 'agent-1', section: 'suggestions' } },
   )
+  assert.deepEqual(
+    modelUsageResourceRoute('agent', 'agent-1', ['image_generation_model']),
+    { path: '/platform/agents', query: { edit: 'agent-1', section: 'tools' } },
+  )
+  assert.equal(
+    modelUsageBindingI18nKey('image_generation_model'),
+    'modelSettings.usage.bindings.image_generation_model',
+  )
   assert.equal(modelUsageBindingI18nKey('vlm_model'), 'modelSettings.usage.bindings.vlm_model')
   assert.equal(modelUsageBindingI18nKey('future_binding'), 'modelSettings.usage.bindings.unknown')
 })

@@ -10,7 +10,7 @@ API key：`manage_models` 或 full-access。
 
 ### GET /api/v1/models/providers
 
-用途：厂商目录（前端据此动态渲染厂商下拉、图标、额外字段与模型选择）。权限：Viewer+。查询参数：`model_type`（可选：`chat/embedding/rerank/vllm/asr`，也接受 `KnowledgeQA` 等后端取值；未知取值返回 400），指定后只返回支持该类型的厂商及该类型的模型。Handler: `internal/handler/model_catalog.go`
+用途：厂商目录（前端据此动态渲染厂商下拉、图标、额外字段与模型选择）。权限：Viewer+。查询参数：`model_type`（可选：`chat/embedding/rerank/vllm/asr/image_generation`，也接受 `KnowledgeQA` 等后端取值；未知取值返回 400），指定后只返回支持该类型的厂商及该类型的模型。Handler: `internal/handler/model_catalog.go`
 
 响应：200 `{"success":true,"data":[ModelProviderDTO]}`，每项：
 
@@ -50,7 +50,7 @@ curl "$BASE/api/v1/models/catalog/resolve?provider=deepseek&model=deepseek-v4-pr
 | --- | --- | --- | --- |
 | `name` | string | 是（`binding:"required"`） | 模型名 |
 | `display_name` | string | 否 | 显示名 |
-| `type` | string | 是（`binding:"required"`） | 模型类型：`KnowledgeQA` / `Embedding` / `Rerank` / `VLLM` / `ASR`（按原样保存，不接受 `chat` 等前端写法） |
+| `type` | string | 是（`binding:"required"`） | 模型类型：`KnowledgeQA` / `Embedding` / `Rerank` / `VLLM` / `ASR` / `ImageGeneration`（按原样保存，不接受 `chat` 等前端写法） |
 | `source` | string | 是（`binding:"required"`） | 来源（`local` / `remote`） |
 | `description` | string | 否 | 描述 |
 | `parameters` | object | 是（`binding:"required"`） | 连接参数（`base_url`、`provider`、`extra_config`、`spec`、`context_window` 等，字段见[模型管理](../03-features/06-models.md#模型配置字段)）。创建时可直接带 `api_key` / `app_secret`，之后经 credentials 子资源修改 |
@@ -115,6 +115,14 @@ curl -X POST $BASE/api/v1/models/m-1/copy -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 curl -X POST $BASE/api/v1/models/m-1/debug -H "Authorization: Bearer $TOKEN" -F 'input=你好'
+```
+
+生图模型（`ImageGeneration`）：`input` 为提示词，必填；`file` 可重复，每个都是参考图（必须是图片，按原图发送），不传则文生图；`options` 另接受 `size`（如 `1024x1024`）与 `count`（1–10，默认 1）。参考图数量超过模型上限、尺寸不在模型的封闭列表内时，在发送前返回错误。`data` 额外带 `images: [{data_uri, mime_type, revised_prompt?}]`；`raw_response` 只含每张图的 `mime_type`、`bytes` 与 `revised_prompt`，不含 base64；`observations` 含 `image_count`、`input_image_count`。
+
+```bash
+curl -X POST $BASE/api/v1/models/m-img/debug -H "Authorization: Bearer $TOKEN" \
+  -F 'input=把两张图合成一张海报' -F 'options={"size":"1024x1024","count":1}' \
+  -F 'file=@a.png' -F 'file=@b.jpg'
 ```
 
 ### PUT /api/v1/models/:id
@@ -354,6 +362,7 @@ curl $BASE/api/v1/initialization/ollama/download/tasks -H "Authorization: Bearer
 | `POST /api/v1/initialization/embedding/test` | Embedding 测试 | `{available,message,dimension}` |
 | `POST /api/v1/initialization/rerank/check` | Rerank 测试 | `{available,message}` |
 | `POST /api/v1/initialization/asr/check` | ASR 测试 | `{available,message}` |
+| `POST /api/v1/initialization/image-generation/check` | 生图测试：真实生成一张图片（模型文档中最小的尺寸，未列尺寸时用厂商默认），产生一次生图费用 | `{available,message}` |
 
 ```bash
 curl -X POST $BASE/api/v1/initialization/remote/check -H "Authorization: Bearer $TOKEN" \

@@ -48,6 +48,9 @@ export function getAgentToolIconName(
   if (toolName === 'attachment_parsing') {
     return 'attach'
   }
+  if (toolName === 'generate_image') {
+    return 'image'
+  }
   if (toolName === 'discover_mcp_tools') {
     return 'search'
   }

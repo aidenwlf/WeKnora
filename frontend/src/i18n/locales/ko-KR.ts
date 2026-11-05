@@ -52,6 +52,7 @@ export default {
     "dimension": "벡터 차원",
     "dimensionDesc": "이 임베딩 모델을 추가할 때 미리 채워지는 차원으로, 모델의 실제 출력과 같아야 합니다.",
     "inputDesc": "모델이 받을 수 있는 입력 유형입니다. 이미지를 선택하면 비전 모델로 사용할 수 있습니다.",
+    "imageGenerationInputDesc": "이미지 생성 모델이 받을 수 있는 입력 유형입니다. 이미지를 선택하면 참고 이미지 편집·합성(이미지→이미지)을 지원함을 뜻합니다.",
     "thinkingLevels": "추론 수준",
     "thinkingLevelsDesc": "채팅에서 선택할 수 있는 추론 강도입니다. '끄기'를 선택하지 않으면 모델이 항상 추론합니다.",
     "levelsNeedReasoning": "'추론 지원'을 켜면 설정할 수 있습니다.",
@@ -1777,6 +1778,12 @@ export default {
       dataAnalysisDesc: '데이터 파일을 이해하고 데이터 분석 수행',
       dataSchema: '데이터 스키마 보기',
       dataSchemaDesc: '테이블 파일의 메타 정보 조회',
+      generateImage: '이미지 생성',
+      generateImageDesc: '텍스트 설명으로 이미지를 생성하거나 참조 이미지를 편집·합성합니다',
+      imageGenerationModel: '이미지 생성 모델',
+      imageGenerationModelDesc: '이미지 생성에 사용할 모델입니다. 이미지 기반 생성에는 사용자가 채팅에서 업로드한 이미지(「첨부 업로드」에서 이미지 업로드를 켜야 함) 또는 이 대화에서 이미 생성한 이미지를 사용합니다',
+      imageGenerationModelPlaceholder: '이미지 생성 모델을 선택하세요',
+      imageGenerationModelRequired: '「이미지 생성」이 선택되어 있습니다. 이미지 생성 모델을 선택하세요',
       requiresKb: '(지식베이스 설정 필요)',
       requiresRagKb: '(벡터/키워드 인덱싱이 활성화된 지식베이스가 필요합니다)',
       requiresWikiKb: '(Wiki 기능이 활성화된 지식베이스가 필요합니다)',
@@ -1808,6 +1815,7 @@ export default {
       groupWikiEdit: 'Wiki 편집',
       groupWikiIssue: 'Wiki 점검',
       groupData: '데이터 분석',
+      groupImage: '이미지',
       writeWarning: 'Wiki 내용을 변경합니다',
       dangerTag: '쓰기',
       statusNoKb: '연결된 지식베이스가 없습니다',
@@ -1992,6 +2000,9 @@ export default {
       imageAnalyzing: '이미지 내용 분석 중...',
       imageAnalysisDone: '이미지 내용 분석 완료',
       imageAnalysisFailed: '이미지 내용 분석 실패',
+      imageGenerating: '이미지 생성 중...',
+      imageGenerated: '생성된 이미지: {count}장',
+      imageGenerationFailed: '이미지 생성 실패',
       attachmentParsing: '첨부 파일 파싱 중...',
       attachmentParsingDone: '첨부 파일 파싱 완료',
       attachmentParsingFailed: '첨부 파일 파싱 실패',
@@ -2077,6 +2088,7 @@ export default {
       thinking: '사고',
       attachmentParsing: '첨부 파일 파싱',
       imageAnalysis: '이미지 내용 분석',
+      generateImage: '이미지 생성',
       queryUnderstand: '질문 이해',
       queryKnowledgeGraph: '지식 그래프 조회',
       readSkill: '스킬 읽기',
@@ -2164,6 +2176,14 @@ export default {
       imagesUnnamed: '첨부 파일 이미지',
       image: '{name}의 이미지 {n}',
       imageUnnamed: '첨부 파일 이미지 {n}'
+    },
+    imageGeneration: {
+      prompt: '프롬프트',
+      revisedPrompt: '모델이 다시 쓴 프롬프트',
+      inputImages: '참조 이미지 {count}장',
+      imageLabel: '이미지 {n}',
+      open: '크게 보기',
+      empty: '반환된 이미지가 없습니다',
     },
     imageView: {
       summary: '"{file}"의 이미지 {numbers}을(를) 확인했습니다 (총 {total}장)',
@@ -3741,6 +3761,7 @@ export default {
         rerank_model: '재정렬 모델',
         query_understand_model: '질의 이해 모델',
         follow_up_model: '후속 질문 모델',
+        image_generation_model: '이미지 생성 모델',
         extract_model: '메모리 추출 모델',
         unknown: '기타 모델 설정'
       }
@@ -3763,6 +3784,8 @@ export default {
       embeddingPlaceholder: 'Embedding을 생성할 텍스트를 입력하세요',
       vlmPrompt: '이미지 프롬프트',
       vlmPromptPlaceholder: '예: 이 이미지를 자세히 설명해 주세요',
+      imagePrompt: '이미지 생성 프롬프트',
+      imagePromptPlaceholder: '예: 눈밭을 달리는 붉은 여우, 수채화 스타일',
       documents: '후보 문서',
       documentsPlaceholder: '후보 문서를 한 줄에 하나씩 입력하세요',
       documentsHint: '비어 있지 않은 각 줄은 ReRank 모델에 별도 문서로 전송됩니다',
@@ -3777,6 +3800,13 @@ export default {
       similarityImageCandidate: '이미지',
       audioFile: '오디오 파일',
       chooseFile: '파일 선택',
+      referenceImages: '참고 이미지 (선택)',
+      referenceImagesHint: '업로드하지 않으면 텍스트로 생성합니다. 업로드한 이미지는 편집·합성됩니다(이미지→이미지). 여러 장 선택할 수 있습니다',
+      imageSize: '이미지 크기',
+      imageSizePlaceholder: '예: 1024x1024 (비워 두면 모델 기본값)',
+      imageCount: '생성 수',
+      previewImage: '크게 보기',
+      revisedPrompt: '모델이 다시 쓴 프롬프트',
       parameters: '요청 매개변수',
       systemPrompt: 'System Prompt',
       systemPromptPlaceholder: '선택 사항, 시스템 프롬프트 입력',
@@ -3799,7 +3829,9 @@ export default {
         reasoningChars: '추론 문자 수',
         reasoningReturned: '추론 내용 반환',
         textChars: '전사 문자 수',
-        segmentCount: '세그먼트 수'
+        segmentCount: '세그먼트 수',
+        imageCount: '생성된 이미지 수',
+        inputImageCount: '참고 이미지 수'
       }
     },
     builtinModels: {
@@ -3826,6 +3858,12 @@ export default {
       builtinCannotCopy: '기본 제공 모델은 복사할 수 없습니다',
       copied: '모델이 복사되었습니다',
       copyFailed: '모델 복사에 실패했습니다'
+    },
+    image_generation: {
+      title: '이미지 생성 모델',
+      desc: '텍스트→이미지 및 이미지→이미지 생성에 사용할 이미지 생성 모델 설정 (OpenAI 호환 Images API)',
+      empty: '이미지 생성 모델 없음',
+      imageToImage: '이미지→이미지 지원'
     },
     asr: {
       title: 'ASR 음성 모델',
@@ -3866,7 +3904,8 @@ export default {
       embedding: 'Embedding',
       rerank: 'ReRank',
       vllm: '비전',
-      asr: '음성'
+      asr: '음성',
+      image_generation: '이미지 생성'
     }
   },
   mcpSettings: {
@@ -4120,7 +4159,6 @@ export default {
     title: '일반 설정',
     allSettings: '모든 설정',
     personalSettings: '개인 설정',
-    helpAndDocs: '도움말 및 문서',
     description: '언어, 외관 등 기본 옵션 설정',
     settings: '설정',
     close: '설정 닫기'
@@ -4233,6 +4271,8 @@ export default {
       baseUrlPlaceholder: '예: https://api.openai.com/v1',
       baseUrlPlaceholderVllm: '예: http://localhost:11434/v1',
       baseUrlPlaceholderAsr: '예: https://api.openai.com/v1',
+      baseUrlPlaceholderImageGeneration: '예: https://api.openai.com/v1',
+      imageGenerationTestCost: '연결 테스트는 실제로 이미지 한 장을 생성하며 생성 1회로 과금됩니다.',
       apiKeyOptional: 'API 키 (선택)',
       apiKeyPlaceholder: 'API 키 입력',
       customHeadersLabel: '사용자 정의 요청 헤더 (선택)',
@@ -4301,7 +4341,8 @@ export default {
         remote: '예: gpt-4, claude-3-opus',
         localVllm: '예: llava:latest',
         remoteVllm: '예: gpt-4-vision-preview',
-        remoteAsr: '예: whisper-1'
+        remoteAsr: '예: whisper-1',
+        remoteImageGeneration: '예: gpt-image-1'
       },
       description: {
         chat: '대화용 대규모 언어 모델 설정',
@@ -4309,6 +4350,7 @@ export default {
         rerank: '결과 재정렬용 모델 설정',
         vllm: '시각 이해 및 멀티모달용 비전 언어 모델 설정',
         asr: '음성 인식 및 오디오 전사를 위한 음성 인식 모델 설정',
+        image_generation: '텍스트→이미지 및 이미지→이미지 생성에 사용할 이미지 생성 모델 설정 (OpenAI 호환 Images API)',
         default: '모델 정보 설정'
       }
     }
@@ -6416,6 +6458,8 @@ export default {
       webSearchNotConfigured: '웹 검색 엔진이 구성되지 않았습니다. 먼저 설정에서 검색 엔진 선택 및 인터페이스 구성을 완료해주세요.',
       webSearchEnabled: '웹 검색이 켜졌습니다',
       webSearchDisabled: '웹 검색이 꺼졌습니다',
+      imageGenerationEnabled: '이미지 생성 켜짐',
+      imageGenerationDisabled: '이미지 생성 꺼짐',
       sessionMissing: '세션 ID가 존재하지 않습니다',
       messageMissing: '메시지 ID를 가져올 수 없습니다. 페이지를 새로고침한 후 다시 시도해주세요',
       stopSuccess: '생성이 중지되었습니다',
@@ -6425,6 +6469,11 @@ export default {
       toggleOn: '웹 검색 켜기',
       toggleOff: '웹 검색 끄기',
       notConfigured: '웹 검색 엔진이 구성되지 않았습니다'
+    },
+    imageGeneration: {
+      label: '이미지 생성',
+      toggleOn: '이미지 생성 켜기',
+      toggleOff: '이미지 생성 끄기'
     }
   },
   manualEditor: {
@@ -6617,7 +6666,6 @@ export default {
     error: '오류',
     success: '성공',
     failed: '실패',
-    info: '정보',
     selectAll: '전체 선택',
     yes: '예',
     no: '아니오',
@@ -6627,10 +6675,8 @@ export default {
     finish: '완료',
     all: '전체',
     clear: '지우기',
-    website: '공식 웹사이트',
     clawhubSkill: 'Claw Skill',
     github: 'GitHub',
-    githubStarTip: 'GitHub에서 저장소로 이동합니다. 유용하다면 Star를 부탁드립니다',
     on: '켜기',
     off: '끄기',
     confirmDelete: '삭제 확인',

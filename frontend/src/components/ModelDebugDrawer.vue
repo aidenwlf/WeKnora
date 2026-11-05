@@ -123,6 +123,40 @@
               <t-button variant="text" size="small" @click="clearFile">{{ $t('common.clear') }}</t-button>
             </div>
           </div>
+
+          <div v-if="isImageGeneration" class="form-item">
+            <label class="form-label">{{ $t('modelSettings.debug.referenceImages') }}</label>
+            <div class="file-picker">
+              <input
+                ref="referenceInputRef"
+                class="file-picker__input"
+                type="file"
+                accept="image/*"
+                multiple
+                @change="onReferenceFilesChange"
+              >
+              <t-button variant="outline" size="small" @click="referenceInputRef?.click()">
+                <template #icon><t-icon name="upload" /></template>
+                {{ $t('modelSettings.debug.chooseFile') }}
+              </t-button>
+            </div>
+            <p class="form-desc">{{ $t('modelSettings.debug.referenceImagesHint') }}</p>
+            <div v-if="referenceFiles.length > 0" class="reference-list">
+              <div v-for="(item, index) in referenceFiles" :key="referencePreviews[index]" class="reference-item">
+                <img :src="referencePreviews[index]" :alt="item.name" class="image-preview">
+                <t-button
+                  variant="text"
+                  shape="square"
+                  size="small"
+                  class="reference-item__remove"
+                  :aria-label="$t('common.delete')"
+                  @click="removeReferenceFile(index)"
+                >
+                  <template #icon><t-icon name="close" /></template>
+                </t-button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section v-if="isChat" class="setting-drawer__section">
@@ -167,6 +201,20 @@
                 · <code>{{ selectedModel.capabilities.thinking_format }}</code>
               </template>
             </p>
+          </div>
+        </section>
+
+        <section v-if="isImageGeneration" class="setting-drawer__section">
+          <h4 class="setting-drawer__section-title">{{ $t('modelSettings.debug.parameters') }}</h4>
+          <div class="parameter-grid">
+            <div class="form-item">
+              <label class="form-label">{{ $t('modelSettings.debug.imageSize') }}</label>
+              <t-input v-model="imageSize" :placeholder="$t('modelSettings.debug.imageSizePlaceholder')" clearable />
+            </div>
+            <div class="form-item">
+              <label class="form-label">{{ $t('modelSettings.debug.imageCount') }}</label>
+              <t-input-number v-model="imageCount" :min="1" :max="4" :step="1" theme="column" />
+            </div>
           </div>
         </section>
 
@@ -224,6 +272,8 @@
               </div>
             </div>
 
+            <ModelDebugImageGrid v-if="generatedImages.length > 0" :images="generatedImages" />
+
             <t-tabs v-model="resultTab" class="result-tabs">
               <t-tab-panel value="response" :label="$t('modelSettings.debug.rawResponse')" />
               <t-tab-panel value="request" :label="$t('modelSettings.debug.requestPreview')" />
@@ -242,9 +292,16 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { copyWithToast } from '@/utils/clipboard'
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
-import { debugModel, type ModelConfig, type ModelDebugResult } from '@/api/model'
+import {
+  debugModel,
+  type ModelConfig,
+  type ModelDebugImage,
+  type ModelDebugOptions,
+  type ModelDebugResult,
+} from '@/api/model'
 import { fileSizeVerification } from '@/utils'
 import { useModelProvidersStore } from '@/stores/modelProviders'
+import ModelDebugImageGrid from '@/components/ModelDebugImageGrid.vue'
 import {
   clampLevel,
   levelDescriptionKey,
@@ -285,6 +342,12 @@ const file = ref<File | null>(null)
 const inputMode = ref<'text' | 'image' | 'similarity'>('text')
 const imagePreview = ref('')
 const fileInputRef = ref<HTMLInputElement | null>(null)
+// ImageGeneration reference images (optional; several turn text-to-image into image-to-image).
+const referenceFiles = ref<File[]>([])
+const referencePreviews = ref<string[]>([])
+const referenceInputRef = ref<HTMLInputElement | null>(null)
+const imageSize = ref('')
+const imageCount = ref(1)
 const reasoningEffort = ref<ReasoningLevel>('off')
 const temperature = ref(0.7)
 const topP = ref(1)
@@ -303,13 +366,14 @@ let runSequence = 0
 const selectedModel = computed(() => props.models.find(model => model.id === selectedModelId.value))
 const filteredModels = computed(() => props.models.filter(model => model.type === selectedModelType.value))
 const isChat = computed(() => selectedModel.value?.type === 'KnowledgeQA')
+const isImageGeneration = computed(() => selectedModel.value?.type === 'ImageGeneration')
 // Thinking is offered only when the catalog says the model can think
 // (remote chat models carry `capabilities` computed by the backend).
 const supportsThinking = computed(() => modelCanThink(selectedModel.value?.capabilities))
 const reasoningOptions = computed(() => supportedLevels(selectedModel.value?.capabilities))
 const acceptsImages = computed(() => {
   const model = selectedModel.value
-  if (!model || model.type === 'ASR') return false
+  if (!model || model.type === 'ASR' || model.type === 'ImageGeneration') return false
   return model.type === 'VLLM'
     || model.capabilities?.input?.includes('image') === true
     || (model.type === 'KnowledgeQA' && model.parameters.supports_vision === true)
@@ -339,6 +403,7 @@ const allModelTypeOptions = computed(() => {
     Rerank: { short: 'rerank', icon: 'filter-sort' },
     VLLM: { short: 'vllm', icon: 'image' },
     ASR: { short: 'asr', icon: 'sound' },
+    ImageGeneration: { short: 'image_generation', icon: 'palette' },
   }
   return (Object.keys(keys) as DebugModelType[]).map(value => ({
     value,
@@ -367,6 +432,7 @@ const inputLabel = computed(() => {
   if (useSimilarityMode.value) return t('modelSettings.debug.similarityQuery')
   if (selectedModel.value?.type === 'Embedding') return t('modelSettings.debug.embeddingInput')
   if (selectedModel.value?.type === 'VLLM') return t('modelSettings.debug.vlmPrompt')
+  if (isImageGeneration.value) return t('modelSettings.debug.imagePrompt')
   if (selectedModel.value?.type === 'Rerank') return t('modelSettings.debug.query')
   return t('modelSettings.debug.query')
 })
@@ -375,6 +441,7 @@ const inputPlaceholder = computed(() => {
   if (useSimilarityMode.value) return t('modelSettings.debug.similarityQueryPlaceholder')
   if (selectedModel.value?.type === 'Embedding') return t('modelSettings.debug.embeddingPlaceholder')
   if (selectedModel.value?.type === 'VLLM') return t('modelSettings.debug.vlmPromptPlaceholder')
+  if (isImageGeneration.value) return t('modelSettings.debug.imagePromptPlaceholder')
   return t('modelSettings.debug.queryPlaceholder')
 })
 
@@ -405,6 +472,12 @@ const similarityResults = computed<SimilarityResult[]>(() => {
   return response.results as SimilarityResult[]
 })
 
+const generatedImages = computed<ModelDebugImage[]>(() => {
+  const images = result.value?.images
+  if (!isImageGeneration.value || !Array.isArray(images)) return []
+  return images.filter(image => typeof image?.data_uri === 'string' && image.data_uri !== '')
+})
+
 const OBSERVATION_LABELS: Record<string, string> = {
   api: 'modelSettings.debug.metrics.api',
   thinking_format: 'modelSettings.debug.metrics.thinkingFormat',
@@ -416,6 +489,8 @@ const OBSERVATION_LABELS: Record<string, string> = {
   reasoning_returned: 'modelSettings.debug.metrics.reasoningReturned',
   text_characters: 'modelSettings.debug.metrics.textChars',
   segment_count: 'modelSettings.debug.metrics.segmentCount',
+  image_count: 'modelSettings.debug.metrics.imageCount',
+  input_image_count: 'modelSettings.debug.metrics.inputImageCount',
 }
 
 const resultMetrics = computed(() => {
@@ -481,6 +556,7 @@ watch(() => selectedModel.value?.id, () => {
 watch(() => selectedModel.value?.id, () => {
   inputMode.value = 'text'
   clearFile()
+  clearReferenceFiles()
 })
 
 const resetResult = () => {
@@ -523,6 +599,28 @@ const onNativeFileChange = (event: Event) => {
   resetResult()
 }
 
+const onReferenceFilesChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const picked = Array.from(target.files || []).filter(item => !fileSizeVerification(item))
+  target.value = ''
+  referenceFiles.value = [...referenceFiles.value, ...picked]
+  referencePreviews.value = [...referencePreviews.value, ...picked.map(item => URL.createObjectURL(item))]
+  resetResult()
+}
+
+const removeReferenceFile = (index: number) => {
+  URL.revokeObjectURL(referencePreviews.value[index])
+  referenceFiles.value = referenceFiles.value.filter((_, i) => i !== index)
+  referencePreviews.value = referencePreviews.value.filter((_, i) => i !== index)
+  resetResult()
+}
+
+const clearReferenceFiles = () => {
+  referencePreviews.value.forEach(url => URL.revokeObjectURL(url))
+  referenceFiles.value = []
+  referencePreviews.value = []
+}
+
 const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -545,14 +643,8 @@ const runDebug = async () => {
       input: isEmbedding.value && useImageMode.value ? '' : input.value.trim(),
       documents: (selectedModel.value.type === 'Rerank' && !useImageMode.value) || useSimilarityMode.value ? documents.value : [],
       file: showFilePicker.value ? file.value : null,
-      options: isChat.value ? {
-        system_prompt: systemPrompt.value.trim() || undefined,
-        temperature: temperature.value,
-        top_p: topP.value,
-        max_tokens: maxTokens.value,
-        // reasoning_effort is authoritative; the boolean keeps older backends working.
-        ...(level ? { reasoning_effort: level, thinking: levelEnablesThinking(level) } : { thinking: false }),
-      } : useSimilarityMode.value ? { similarity: true } : {},
+      files: isImageGeneration.value ? [...referenceFiles.value] : undefined,
+      options: debugOptions(level),
     })
     result.value = nextResult
     history.value.unshift({
@@ -569,6 +661,23 @@ const runDebug = async () => {
   }
 }
 
+const debugOptions = (level: ReasoningLevel | null): ModelDebugOptions => {
+  if (isChat.value) {
+    return {
+      system_prompt: systemPrompt.value.trim() || undefined,
+      temperature: temperature.value,
+      top_p: topP.value,
+      max_tokens: maxTokens.value,
+      // reasoning_effort is authoritative; the boolean keeps older backends working.
+      ...(level ? { reasoning_effort: level, thinking: levelEnablesThinking(level) } : { thinking: false }),
+    }
+  }
+  if (isImageGeneration.value) {
+    return { size: imageSize.value.trim() || undefined, count: imageCount.value }
+  }
+  return useSimilarityMode.value ? { similarity: true } : {}
+}
+
 const copyResult = async () => {
   if (!result.value) return
   await copyWithToast(JSON.stringify(result.value, null, 2), 'common.copied')
@@ -576,6 +685,7 @@ const copyResult = async () => {
 
 onBeforeUnmount(() => {
   if (imagePreview.value) URL.revokeObjectURL(imagePreview.value)
+  clearReferenceFiles()
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur()
   }
@@ -714,6 +824,26 @@ onBeforeUnmount(() => {
   height: 80px;
   object-fit: contain;
   border-radius: var(--app-radius-sm);
+}
+
+.reference-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.reference-item {
+  position: relative;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--app-radius-sm);
+
+  &__remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--td-bg-color-container);
+  }
 }
 
 .history-list {

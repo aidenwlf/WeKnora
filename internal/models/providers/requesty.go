@@ -21,7 +21,12 @@
 //     accordingly;
 //   - embeddings and VLM share the https://router.requesty.ai/v1 base; the
 //     Anthropic-style surface is a separate path
-//     (/anthropic/v1/messages) and xhigh is unreachable through it.
+//     (/anthropic/v1/messages) and xhigh is unreachable through it;
+//   - images (https://docs.requesty.ai/features/image-generation):
+//     /v1/images/generations and multipart /v1/images/edits (image or
+//     image[], up to 16), sizes 1024x1024 / 1536x1024 / 1024x1536.
+//     response_format defaults to url, so b64_json is asked for and the
+//     image arrives in the reply.
 //
 // Unverified:
 //   - Requesty warns "Do not hardcode model versions — model availability
@@ -65,17 +70,23 @@ func newRequestyProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"router.requesty.ai", "requesty.ai"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: RequestyBaseURL,
-			types.ModelTypeEmbedding:   RequestyBaseURL,
-			types.ModelTypeVLLM:        RequestyBaseURL,
+			types.ModelTypeKnowledgeQA:     RequestyBaseURL,
+			types.ModelTypeEmbedding:       RequestyBaseURL,
+			types.ModelTypeVLLM:            RequestyBaseURL,
+			types.ModelTypeImageGeneration: RequestyBaseURL,
 		},
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
 			types.ModelTypeEmbedding,
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
+			types.ModelTypeImageGeneration,
 		},
 		Compat: VendorCompat{
+			Images: api.ImagesCompat{
+				ResponseFormat: api.Ptr("b64_json"),
+				MaxInputImages: api.Ptr(16),
+			},
 			Transcriptions: api.TranscriptionsCompat{
 				// https://docs.requesty.ai/api-reference/endpoint/audio-transcriptions-create:
 				// OpenAI-compatible multipart, json by default, verbose_json

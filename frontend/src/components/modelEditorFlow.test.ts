@@ -40,6 +40,7 @@ async function fixture(options: {
   resolve?: (params: any) => Promise<any>
 } = {}) {
   const requests: any[] = []
+  const checks: string[] = []
   const saves: any[] = []
   const resolves: any[] = []
   const providers: any[] = options.providers || []
@@ -77,6 +78,7 @@ async function fixture(options: {
     requests.push(payload)
     return options.check ? options.check(payload) : { available: true }
   }
+  const checkAs = (name: string) => (payload: any) => { checks.push(name); return check(payload) }
   const exports: any = {}
   runInNewContext(compiled, {
     exports, URL, setInterval, clearInterval, setTimeout, clearTimeout, JSON,
@@ -90,7 +92,9 @@ async function fixture(options: {
         MessagePlugin: Object.fromEntries(['success', 'error', 'warning', 'info'].map(key => [key, (text: string) => toasts.push(text)])),
       }
       if (name === '@/api/initialization') return {
-        checkRemoteModel: check, testEmbeddingModel: check, checkRerankModel: check, checkASRModel: check,
+        checkRemoteModel: checkAs('remote'), testEmbeddingModel: checkAs('embedding'),
+        checkRerankModel: checkAs('rerank'), checkASRModel: checkAs('asr'),
+        checkImageGenerationModel: checkAs('image_generation'),
         listModelProviders: async () => [], checkOllamaStatus: async () => ({ available: false }),
         resolveModelCatalog: async (params: any) => { resolves.push(params); return options.resolve ? options.resolve(params) : {
           provider: params.provider, api: 'openai-completions', base_url: params.base_url, remote_model: params.model,
@@ -133,7 +137,10 @@ async function fixture(options: {
   }
   vm.formRef = { validate: async () => true }
   await nextTick()
-  return { vm, props, requests, saves, toasts, visibility, resolves, catalogEvents, catalogRequests, close: () => app.unmount() }
+  return {
+    vm, props, requests, checks, saves, toasts, visibility, resolves, catalogEvents, catalogRequests,
+    close: () => app.unmount(),
+  }
 }
 
 for (const initiallyVisible of [true, false]) {
@@ -167,7 +174,7 @@ for (const initiallyVisible of [true, false]) {
   }
 }
 
-for (const type of ['embedding', 'rerank', 'vllm', 'asr']) {
+for (const type of ['embedding', 'rerank', 'vllm', 'asr', 'image_generation']) {
   test(`${type}: opening from its settings tab loads the matching providers and models`, async () => {
     const provider = {
       value: 'vendor', label: 'Vendor', modelTypes: [type],
@@ -200,10 +207,10 @@ test('reopening after changing the draft type refreshes the newly selected setti
   } finally { f.close() }
 })
 
-for (const type of ['chat', 'embedding', 'rerank', 'vllm', 'asr']) {
+for (const type of ['chat', 'embedding', 'rerank', 'vllm', 'asr', 'image_generation']) {
   test(`${type}: changing type resets the whole connection form and its results`, async () => {
     const f = await fixture({ type: type === 'chat' ? 'rerank' : 'chat', providers: [{
-      value: 'vendor', modelTypes: ['chat', 'embedding', 'rerank', 'vllm', 'asr'], models: [],
+      value: 'vendor', modelTypes: ['chat', 'embedding', 'rerank', 'vllm', 'asr', 'image_generation'], models: [],
     }] })
     try {
       Object.assign(f.vm.formData, {
@@ -329,7 +336,7 @@ test('selecting the current type, editing, or saving does not reset the draft', 
   }
 })
 
-for (const type of ['chat', 'embedding', 'rerank', 'vllm', 'asr']) {
+for (const type of ['chat', 'embedding', 'rerank', 'vllm', 'asr', 'image_generation']) {
   test(`${type}: connection tests use unsaved form values without saving`, async () => {
     const f = await fixture({ type })
     try {
@@ -708,7 +715,7 @@ test('resolve panel is refreshed once per 400ms burst of edits and ignored while
   } finally { f.close() }
 })
 
-for (const type of ['embedding', 'rerank', 'asr']) {
+for (const type of ['embedding', 'rerank', 'asr', 'image_generation']) {
   test(`${type}: the catalog diagnosis panel is hidden and never fetched`, async () => {
     const f = await fixture({ type, providers: catalogProviders })
     try {
@@ -1047,6 +1054,40 @@ test('an explicitly empty type URL clears the old endpoint without inheriting th
     f.vm.formData.provider = 'custom'
     f.vm.handleProviderChange('custom')
     assert.equal(f.vm.formData.baseUrl, '')
+  } finally { f.close() }
+})
+
+test('image generation is remote-only and tests the connection through its own check', async () => {
+  const f = await fixture({ type: 'image_generation', draft: { source: 'local', modelName: 'gpt-image-1', baseUrl: 'https://api.openai.com/v1' } })
+  try {
+    assert.equal(f.vm.supportsLocalSource(f.vm.activeModelType), false, 'the Ollama source is hidden')
+    assert.equal(f.vm.formData.source, 'remote', 'a local draft is forced to remote')
+    assert.equal(f.vm.getModelNamePlaceholder(), 'model.editor.modelNamePlaceholder.remoteImageGeneration')
+    assert.equal(f.vm.getBaseUrlPlaceholder(), 'model.editor.baseUrlPlaceholderImageGeneration')
+    assert.equal(f.vm.getModalDescription(), 'model.editor.description.image_generation')
+    await f.vm.checkRemoteAPI()
+    assert.deepEqual([...f.checks], ['image_generation'])
+    assert.equal(f.requests[0].modelName, 'gpt-image-1')
+    assert.equal(f.requests[0].baseUrl, 'https://api.openai.com/v1')
+    assert.equal(f.vm.remoteAvailable, true)
+  } finally { f.close() }
+})
+
+test('image generation vendor changes apply the type default URL', async () => {
+  const f = await fixture({ type: 'image_generation', providers: [
+    { value: 'openai', defaultUrls: { image_generation: 'https://api.openai.com/v1' }, models: [{ id: 'gpt-image-1', type: 'image_generation' }] },
+    { value: 'generic', models: [] },
+  ] })
+  try {
+    for (const [vendor, url, hint] of [
+      ['openai', 'https://api.openai.com/v1', 'gpt-image-1'],
+      ['generic', '', 'model.editor.modelNamePlaceholder.remoteImageGeneration'],
+    ]) {
+      f.vm.formData.provider = vendor
+      f.vm.handleProviderChange(vendor)
+      assert.equal(f.vm.formData.baseUrl, url, vendor)
+      assert.equal(f.vm.getModelNamePlaceholder(), hint, vendor)
+    }
   } finally { f.close() }
 })
 

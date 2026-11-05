@@ -305,6 +305,10 @@ type ModelDebugOptions struct {
 	// Similarity makes an embedding test score the documents (and an
 	// optional image) against the input as a search query.
 	Similarity bool `json:"similarity,omitempty"`
+	// Size and Count shape an image generation test; empty Size uses the
+	// model's default and 0 Count means one image.
+	Size  string `json:"size,omitempty"`
+	Count int    `json:"count,omitempty"`
 }
 
 func parseModelDebugOptions(raw string) (ModelDebugOptions, error) {
@@ -392,12 +396,22 @@ func modelDebugRequestPreview(model *types.Model, input string, documents []stri
 }
 
 func writeModelDebugResult(c *gin.Context, started time.Time, request gin.H, response any, callErr error, observations gin.H) {
+	writeModelDebugResultWith(c, started, request, response, callErr, observations, nil)
+}
+
+// writeModelDebugResultWith adds type-specific top-level fields to the result.
+func writeModelDebugResultWith(
+	c *gin.Context, started time.Time, request gin.H, response any, callErr error, observations, extra gin.H,
+) {
 	data := gin.H{
 		"ok":           callErr == nil,
 		"elapsed_ms":   time.Since(started).Milliseconds(),
 		"request":      request,
 		"raw_response": response,
 		"observations": observations,
+	}
+	for key, value := range extra {
+		data[key] = value
 	}
 	if callErr != nil {
 		data["error"] = callErr.Error()
@@ -511,6 +525,11 @@ func (h *ModelHandler) DebugModel(c *gin.Context) {
 			c.Error(errors.NewBadRequestError("documents cannot exceed 100 items"))
 			return
 		}
+	}
+
+	if model.Type == types.ModelTypeImageGeneration {
+		h.debugImageGeneration(c, id, model, input, opts, started)
+		return
 	}
 
 	var (

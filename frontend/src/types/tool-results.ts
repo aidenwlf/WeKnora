@@ -32,6 +32,7 @@ export type DisplayType =
     | 'edit_sandbox_file'
     | 'read_skill'
     | 'image_view'
+    | 'image_generation'
     | 'mcp_discovery'
     | 'mcp_call'
     | 'find_operations'
@@ -470,6 +471,26 @@ export interface ImageViewData {
     next_path?: string;
 }
 
+/** One image saved by generate_image; `url` is a protected resource:// handle. */
+export interface GeneratedImage {
+    url: string;
+    file_name: string;
+    mime_type: string;
+    width?: number;
+    height?: number;
+}
+
+/** Result of generate_image (text-to-image or image-to-image). */
+export interface ImageGenerationData {
+    display_type?: 'image_generation';
+    prompt: string;
+    revised_prompt?: string;
+    model: string;
+    size?: string;
+    input_count: number;
+    images: GeneratedImage[];
+}
+
 // Union type for all wiki edit data
 export type WikiEditData = WikiWritePageData | WikiReplaceTextData | WikiRenamePageData | WikiDeletePageData;
 
@@ -495,7 +516,8 @@ export type ToolResultData =
     | ShellExecData
     | ListSandboxFilesData
     | ReadSkillData
-    | ImageViewData;
+    | ImageViewData
+    | ImageGenerationData;
 
 // Action data (from index.vue)
 export interface ActionData {

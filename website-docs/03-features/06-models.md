@@ -1,6 +1,6 @@
 # 模型管理
 
-在「设置 → 模型」添加对话、向量、重排、视觉和语音模型，再由知识库或智能体按需选用。本地 Ollama 和远程模型可以组合使用，例如由本地模型生成向量、远程模型生成回答。
+在「设置 → 模型」添加对话、向量、重排、视觉、语音和生图模型，再由知识库或智能体按需选用。本地 Ollama 和远程模型可以组合使用，例如由本地模型生成向量、远程模型生成回答。
 
 <Screenshot
   src="/screenshots/settings-models.png"
@@ -23,6 +23,7 @@
 | 重排模型 | 对召回片段重新排序 |
 | 视觉模型 | 识别文档或对话中的图片 |
 | 语音模型 | 将音频转写为文本 |
+| 生图模型 | 由文字生成图片（文生图），模型支持时也可参考上传或已生成的图片修改、合成（图生图），供智能体的「生成图片」工具使用 |
 
 ## 添加与验证连接
 
@@ -279,45 +280,79 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 | `formats` | string[] | 空（不限） | 接受的音频扩展名（不带点） |
 | `request_timeout_seconds` | int | 300 | 单次请求超时（秒） |
 
+**生图模型**
+
+本版本只接入 OpenAI 兼容的 Images API：文生图为 `POST {base_url}/images/generations`（JSON），图生图为 `POST {base_url}/images/edits`（multipart，参考图一张时字段名 `image`，多张时 `image[]`，每张带扩展名和图片 Content-Type）。回复 `data[]` 中的 `b64_json` 直接解码，`url` 通过 SSRF 安全的客户端下载（单张 ≤50 MB，按内容识别必须是图片）；`data` 为空或带 `error` 时报错。
+
+| 字段 | 类型 | 协议默认 | 说明 |
+| --- | --- | --- | --- |
+| `api` | string | `openai-images` | 目前唯一取值 |
+| `generations_path` / `edits_path` | string | `/images/generations` / `/images/edits` | 追加在 `base_url` 之后的路径 |
+| `response_format` | string | 空 | 填写时作为 `response_format` 发送。gpt-image 系列不接受该字段，留空；Requesty、火山方舟默认返回链接，内置配置为 `b64_json` |
+| `max_input_images` | int | 0 | 单次请求最多的参考图数量；0 表示只能文生图，带参考图的请求在发送前拒绝 |
+| `max_count` | int | 10 | 单次最多生成张数（1–10），智谱、火山方舟为 1 |
+| `default_size` | string | 空 | 请求未指定尺寸时发送的尺寸；空则由厂商决定 |
+| `sizes` | string[] | 空（不限） | 封闭的尺寸列表；填写后不在列表内的尺寸在发送前拒绝 |
+| `request_timeout_seconds` | int | 300 | 单次请求超时（秒），生图较慢 |
+
+模型能力里的 `input` 与实际限制一致：`max_input_images > 0` 时为 `["text","image"]`（模型卡片显示「图生图」），否则为 `["text"]`。
+
 ## 内置厂商
 
 内置 31 个厂商，另可通过 Ollama 接入本地模型。各厂商支持的模型类型如下（✓ 表示支持）：
 
-| 厂商 | ID | 对话 | 向量 | 重排 | 视觉 | 语音 |
-| --- | --- | :-: | :-: | :-: | :-: | :-: |
-| 自定义（OpenAI 兼容接口） | `generic` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| WeKnora 云服务 | `weknoracloud` | ✓ | ✓ | ✓ | ✓ | |
-| 阿里云 DashScope | `aliyun` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 智谱 BigModel | `zhipu` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 火山引擎 | `volcengine` | ✓ | ✓ | ✓ | ✓ | |
-| 腾讯混元 | `hunyuan` | ✓ | ✓ | | | |
-| 硅基流动 | `siliconflow` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| MiniMax | `minimax` | ✓ | | | | ✓ |
-| 月之暗面 Moonshot | `moonshot` | ✓ | | | ✓ | |
-| 小米 MiMo | `mimo` | ✓ | | | | ✓ |
-| 魔搭 ModelScope | `modelscope` | ✓ | ✓ | | ✓ | |
-| 百度千帆 | `qianfan` | ✓ | ✓ | ✓ | ✓ | |
-| 七牛云 | `qiniu` | ✓ | | | | |
-| 美团 LongCat | `longcat` | ✓ | | | | |
-| 腾讯云 LKEAP | `lkeap` | ✓ | | ✓ | | |
-| DeepSeek | `deepseek` | ✓ | | | | |
-| OpenAI | `openai` | ✓ | ✓ | | ✓ | ✓ |
-| Azure OpenAI | `azure_openai` | ✓ | ✓ | | ✓ | |
-| Anthropic | `anthropic` | ✓ | | | | |
-| Google Gemini | `gemini` | ✓ | ✓ | | | |
-| OpenRouter | `openrouter` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| LiteLLM | `litellm` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Requesty | `requesty` | ✓ | ✓ | | ✓ | ✓ |
-| Jina | `jina` | | ✓ | ✓ | | |
-| NVIDIA | `nvidia` | ✓ | ✓ | ✓ | ✓ | |
-| Novita AI | `novita` | ✓ | ✓ | ✓ | ✓ | |
-| GPUStack | `gpustack` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Hugging Face TEI | `huggingface_tei` | | | ✓ | | |
-| Pinecone | `pinecone` | | | ✓ | | |
-| Cohere | `cohere` | | | ✓ | | |
-| WunoOS | `wunoos` | ✓ | | | ✓ | |
+| 厂商 | ID | 对话 | 向量 | 重排 | 视觉 | 语音 | 生图 |
+| --- | --- | :-: | :-: | :-: | :-: | :-: | :-: |
+| 自定义（OpenAI 兼容接口） | `generic` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| WeKnora 云服务 | `weknoracloud` | ✓ | ✓ | ✓ | ✓ | | |
+| 阿里云 DashScope | `aliyun` | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| 智谱 BigModel | `zhipu` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 火山引擎 | `volcengine` | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| 腾讯混元 | `hunyuan` | ✓ | ✓ | | | | |
+| 硅基流动 | `siliconflow` | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| MiniMax | `minimax` | ✓ | | | | ✓ | |
+| 月之暗面 Moonshot | `moonshot` | ✓ | | | ✓ | | |
+| 小米 MiMo | `mimo` | ✓ | | | | ✓ | |
+| 魔搭 ModelScope | `modelscope` | ✓ | ✓ | | ✓ | | |
+| 百度千帆 | `qianfan` | ✓ | ✓ | ✓ | ✓ | | ✓ |
+| 七牛云 | `qiniu` | ✓ | | | | | |
+| 美团 LongCat | `longcat` | ✓ | | | | | |
+| 腾讯云 LKEAP | `lkeap` | ✓ | | ✓ | | | |
+| DeepSeek | `deepseek` | ✓ | | | | | |
+| OpenAI | `openai` | ✓ | ✓ | | ✓ | ✓ | ✓ |
+| Azure OpenAI | `azure_openai` | ✓ | ✓ | | ✓ | | ✓ |
+| Anthropic | `anthropic` | ✓ | | | | | |
+| Google Gemini | `gemini` | ✓ | ✓ | | | | |
+| OpenRouter | `openrouter` | ✓ | ✓ | ✓ | ✓ | ✓ | |
+| LiteLLM | `litellm` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Requesty | `requesty` | ✓ | ✓ | | ✓ | ✓ | ✓ |
+| Runcrate | `runcrate` | ✓ | ✓ | | ✓ | | |
+| Jina | `jina` | | ✓ | ✓ | | | |
+| NVIDIA | `nvidia` | ✓ | ✓ | ✓ | ✓ | | |
+| Novita AI | `novita` | ✓ | ✓ | ✓ | ✓ | | |
+| GPUStack | `gpustack` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Hugging Face TEI | `huggingface_tei` | | | ✓ | | | |
+| Pinecone | `pinecone` | | | ✓ | | | |
+| Cohere | `cohere` | | | ✓ | | | |
+| WunoOS | `wunoos` | ✓ | | | ✓ | | |
 
 表中的「视觉」指可在视觉模型类型下选择该厂商；对话模型本身是否接受图片，以模型目录和「支持视觉/多模态」开关为准。WeKnora 云服务需先在设置中保存云服务凭证，模型名称可选 `chat`、`embedding`、`rerank`、`vlm`。
+
+生图厂商与图生图支持：
+
+| 厂商 | 目录模型 | 图生图 |
+| --- | --- | --- |
+| OpenAI | `gpt-image-2.6-sunburst`、`gpt-image-2.6-flare`、`gpt-image-2.5-sunburst`、`gpt-image-2.5-flare`、`gpt-image-2`、`gpt-image-1.5`、`gpt-image-1-mini`（后两个 2026-12-01 下线，尺寸限 `1024x1024` / `1536x1024` / `1024x1536` / `auto`） | 最多 16 张 |
+| Azure OpenAI | 部署名任意（`gpt-image*` 部署按目录模式匹配） | 最多 16 张 |
+| Requesty | `openai/gpt-image-2`、`azure/openai/gpt-image-1.5` | 最多 16 张 |
+| 智谱 | `glm-image`、`cogview-4-250304`、`cogview-4`、`cogview-3-flash` | 不支持，每次 1 张 |
+| 火山方舟 | `doubao-seedream-5-0-pro-260628`、`doubao-seedream-5-0-flash-260915`，以及即将下线的 `doubao-seedream-5-0-260128`、`-5-0-lite-260128`、`-4-5-251128`、`-4-0-250828` | 不支持（方舟的参考图走 JSON `image` 字段，本版本未接入），每次 1 张 |
+| 百度千帆 | `qwen-image`（每次 1 张；其他模型最多 4 张） | 不支持（千帆的 edits 接口是 JSON） |
+| generic / LiteLLM / GPUStack | 由部署决定，目录不列模型 | 默认允许，最多 16 张，以网关自身报错为准 |
+
+Azure OpenAI 未填 `api_version` 时生图请求发往 `/openai/v1/images/generations?api-version=preview`（images 在 v1 只有 preview 文档）；填写后走 `/openai/deployments/{部署名}/images/...?api-version=…`，gpt-image 需 `2025-04-01-preview` 或更新版本。
+
+暂未接入生图：Gemini（兼容层无 edits，非对话接口的鉴权与兼容层不一致）、OpenRouter（`/api/v1/images`，字段不同）、魔搭（仅异步任务）、腾讯混元（另一主机 TokenHub）、MiniMax（`/v1/image_generation`，字段不同）、Novita（异步任务）、NVIDIA 托管接口（`/v1/genai/...`，字段不同；自建 NIM 可用 generic）、硅基流动（回复为 `images[]`、尺寸字段为 `image_size`）、阿里云 DashScope（multimodal-generation 接口）。
 
 厂商列表、默认地址和模型目录由服务端下发（`GET /api/v1/models/providers`），运维可以通过[部署叠加](#部署叠加-config-models-json)修改或新增厂商。
 
@@ -385,6 +420,7 @@ const (
     ModelTypeKnowledgeQA ModelType = "KnowledgeQA" // KnowledgeQA model
     ModelTypeVLLM        ModelType = "VLLM"        // VLLM model
     ModelTypeASR         ModelType = "ASR"         // ASR model
+    ModelTypeImageGeneration ModelType = "ImageGeneration" // image generation model
 )
 ```
 
@@ -395,6 +431,7 @@ const (
 | `Rerank` | `rerank` | `internal/models/rerank` | `Rerank(query, documents)` 返回 `RankResult` | 检索结果精排 |
 | `VLLM` | `vllm` | `internal/models/vlm` | `Predict(imgBytes, prompt)` | 视觉语言模型（VLM），文档图片理解 / 多模态解析 |
 | `ASR` | `asr` | `internal/models/asr` | `Transcribe(audioBytes, fileName)` 返回文本；模型提供时附带分段时间戳（如 OpenAI `whisper-1`） | 音频转写（自动语音识别） |
+| `ImageGeneration` | `image_generation` | `internal/models/imagegen` | `Generate(Request{Prompt, Images, Size, Count})` 返回解码后的图片；`MaxInputImages()` 为 0 表示只能文生图 | 文生图 / 图生图，供智能体「生成图片」工具使用 |
 
 前后端类型映射见 `internal/handler/model_catalog.go` 的 `modelTypeToFrontend()`（`KnowledgeQA -> chat` 等）。创建模型的 REST 接口按原样保存 `type`，调用方应传后端取值（`KnowledgeQA` 等）；`model_type` 查询参数则两种写法都接受。
 
@@ -461,11 +498,12 @@ const (
    - `POST /initialization/embedding/test` — Embedding（`TestEmbeddingModel`）
    - `POST /initialization/rerank/check` — Rerank（`CheckRerankModel`）
    - `POST /initialization/asr/check` — ASR（`CheckASRModel`）
+   - `POST /initialization/image-generation/check` — 生图（`CheckImageGenerationModel`）。会真实生成一张图片（按模型文档中最小的尺寸，未列尺寸时用厂商默认），**产生一次生图费用**
    - `POST /initialization/multimodal/test` — VLM 多模态解析（`TestMultimodalFunction`）
 
    请求体 `ModelTestRequest` 可携带 `modelId`：`fillSecretsFromStoredModel` 会把请求中缺失的 `APIKey` / `AppSecret`、`extraConfig` 与 `spec` 从已存模型（解密后）补齐，实现"改 BaseURL 用旧密钥一键验证"，前端无需也无法拿到明文密钥。`buildTestModel` 把请求转换为**不落库**的临时 `*types.Model`，与生产路径共享同一套 `ConfigFromModel` 映射。
 
-2. **模型调试器**（`POST /models/:id/debug`，`ModelHandler.DebugModel`）：对已保存模型按类型发起真实调用并返回完整归一化响应——Chat 走流式，可指定思考强度（`options.reasoning_effort`），并聚合协议、思考开关传参等观测项；Embedding 返回向量与维度；Rerank 返回打分结果；VLM / ASR 接受上传文件。响应含 `elapsed_ms`、脱敏后的请求预览与 `observations`。
+2. **模型调试器**（`POST /models/:id/debug`，`ModelHandler.DebugModel`）：对已保存模型按类型发起真实调用并返回完整归一化响应——Chat 走流式，可指定思考强度（`options.reasoning_effort`），并聚合协议、思考开关传参等观测项；Embedding 返回向量与维度；Rerank 返回打分结果；VLM / ASR 接受上传文件；生图以 `input` 为提示词，`file` 可重复上传多张参考图（原图发送，不压缩），`options` 可带 `size`、`count`，响应额外返回 `images[]`（`data_uri`、`mime_type`、`revised_prompt`），`raw_response` 不含图片的 base64。响应含 `elapsed_ms`、脱敏后的请求预览与 `observations`。
 
 ### 内置模型机制
 
@@ -478,7 +516,7 @@ const (
 - **漂移清理**：`managed_by='yaml'` 但 id 已不在文件中的行被软删除——从 YAML 删除条目即是下线内置模型的正规方式。
 - 管理员在运行时接管某行（`managed_by` 置空）后，YAML 加载器会跳过该行（"preserving runtime override"）。
 - `is_default: true` 条目会先清掉同 `(tenant_id, type)` 桶内其他默认，保持与 API 路径一致的唯一默认不变式。
-- 校验规则：id 非空且 ≤64 字符（`ModelIDMaxLen`）、type 必须是 `KnowledgeQA | Embedding | Rerank | VLLM | ASR`、status 合法或为空；YAML 解析失败时中止对账（不执行漂移清理）。
+- 校验规则：id 非空且 ≤64 字符（`ModelIDMaxLen`）、type 必须是 `KnowledgeQA | Embedding | Rerank | VLLM | ASR | ImageGeneration`、status 合法或为空；YAML 解析失败时中止对账（不执行漂移清理）。
 - `parameters` 与 REST 接口使用同一套目录校验（`runtime.ValidateRow`）：无法解析的行（未知协议、拼错的 compat 键、非法思考等级）只输出 WARN，不阻塞启动。
 
 YAML 示例（摘自 `builtin_models.yaml.example`）：
@@ -521,7 +559,7 @@ builtin_models:
 | --- | --- |
 | `name` / `names` / `description` / `descriptions` / `website` | 展示名称、按语言的名称与描述、官网 |
 | `api` | 默认对话协议（`openai-completions`、`openai-responses`、`anthropic-messages`、`google-generative-ai`） |
-| `base_url` / `base_urls` | 默认地址；`base_urls` 按 `chat`、`embedding`、`rerank`、`vlm`、`asr` 分别指定 |
+| `base_url` / `base_urls` | 默认地址；`base_urls` 按 `chat`、`embedding`、`rerank`、`vlm`、`asr`、`image_generation` 分别指定 |
 | `api_key` | 部署级密钥，模型行未保存密钥时使用；支持 `${ENV}` / `$ENV` 插值，未设置的变量展开为空 |
 | `auth` / `requires_auth` | 鉴权方式（`bearer`、`api-key`、`x-api-key`、`x-goog-api-key`、`none`）与是否必须填写密钥 |
 | `headers` | 附加请求头 |
@@ -576,7 +614,7 @@ builtin_models:
 
 | 层 | 位置 | 职责 |
 |----|------|------|
-| 协议层 | `internal/models/api/<protocol>` | 一个 wire 协议一个包。对话：`openaicompletions`、`openairesponses`、`anthropicmessages`、`googlegenai`；重排：`cohererank`、`dashscoperank`、`nimrerank`、`tencentlkeap`、`volcengineknowledge`、`teirank`、`pineconerank`；向量：`openaiembeddings`、`dashscopeembeddings`、`arkembeddings`、`googleembeddings`；语音：`openaitranscriptions`、`openaichataudio`。各自持有请求/响应结构与解析，不依赖厂商定义或模型目录 |
+| 协议层 | `internal/models/api/<protocol>` | 一个 wire 协议一个包。对话：`openaicompletions`、`openairesponses`、`anthropicmessages`、`googlegenai`；重排：`cohererank`、`dashscoperank`、`nimrerank`、`tencentlkeap`、`volcengineknowledge`、`teirank`、`pineconerank`；向量：`openaiembeddings`、`dashscopeembeddings`、`arkembeddings`、`googleembeddings`；语音：`openaitranscriptions`、`openaichataudio`；生图：`openaiimages`。各自持有请求/响应结构与解析，不依赖厂商定义或模型目录 |
 | 厂商层 | `internal/models/providers/<id>.go` | 一个厂商一份定义，声明支持的模型类型、各类型默认地址、鉴权方式、额外字段、协议兼容默认值与特殊端点钩子；图标放 `providers/assets/`，在 `builtin.go` 的 `Builtins()` 显式列出 |
 | 目录层 | `internal/models/catalog` | 加载生成的模型目录 `catalog/data/models.generated.json`，按类型和模型名查询条目；不含厂商行为 |
 | 运行时 | `internal/models/runtime` | 组合厂商定义与目录、应用部署叠加（`overlay.go`），合并单个模型配置、选择协议、组装认证和端点，隔离旧字段推断 |
@@ -647,9 +685,9 @@ Anthropic 走 Messages 协议；Gemini 默认走原生 `generateContent`（`base
 
 ```mermaid
 flowchart TD
-    H["Handler 层<br/>(model.go / session / agent)"] --> S["modelService.GetChatModel /<br/>GetEmbeddingModel / GetRerankModel /<br/>GetVLMModel / GetASRModel"]
+    H["Handler 层<br/>(model.go / session / agent)"] --> S["modelService.GetChatModel /<br/>GetEmbeddingModel / GetRerankModel /<br/>GetVLMModel / GetASRModel /<br/>GetImageGenerationModel"]
     S --> R["ModelRepository<br/>(models 表, APIKey AES-GCM 解密)"]
-    S --> CF["ConfigFromModel<br/>(chat / embedding / rerank / vlm / asr)"]
+    S --> CF["ConfigFromModel<br/>(chat / embedding / rerank / vlm / asr / imagegen)"]
     CF --> F{"工厂函数<br/>NewChat / NewEmbedder / ..."}
     F -->|"source = local"| OL["OllamaService<br/>(internal/models/utils/ollama)"]
     F -->|"source = remote"| PD{"runtime.Resolve<br/>(厂商 + 模型 + 叠加 + 行覆盖)"}

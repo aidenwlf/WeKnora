@@ -35,7 +35,7 @@ type OverlayProvider struct {
 	// for built-in ones).
 	API api.API `json:"api,omitempty"`
 	// BaseURL sets the chat base URL; BaseURLs sets per-type URLs keyed by
-	// chat | embedding | rerank | vlm | asr.
+	// chat | embedding | rerank | vlm | asr | image_generation.
 	BaseURL  string            `json:"base_url,omitempty"`
 	BaseURLs map[string]string `json:"base_urls,omitempty"`
 	// APIKey is the deployment-level key used when a model row stores none.

@@ -480,6 +480,18 @@ const showWebSearchButton = computed(() => {
 });
 const showImageUploadButton = computed(() => isImageUploadEnabledByAgent.value);
 
+// 智能体是否提供生图：配了生图模型且勾选了 generate_image 工具
+const agentOffersImageGeneration = computed(() => {
+  const config = currentAgentConfig.value;
+  if (!config || !config.image_generation_model_id) return false;
+  const allowed = config.allowed_tools;
+  return Array.isArray(allowed) && allowed.includes('generate_image');
+});
+
+// 输入工具栏：仅在智能体模式下、且智能体提供生图时显示
+const showImageGenerationButton = computed(() => isAgentEnabled.value && agentOffersImageGeneration.value);
+const isImageGenerationEnabled = computed(() => settingsStore.isImageGenerationEnabled);
+
 // 语音输入：复用智能体的「音频上传 + ASR 模型」配置
 const voiceInputSupported = isVoiceInputSupported();
 const showVoiceButton = computed(() => {
@@ -2896,6 +2908,16 @@ const toggleWebSearch = () => {
   MessagePlugin.success(newValue ? t('input.messages.webSearchEnabled') : t('input.messages.webSearchDisabled'));
 };
 
+const toggleImageGeneration = () => {
+  showMention.value = false;
+  showModelSelector.value = false;
+  showAgentModeSelector.value = false;
+
+  const next = !settingsStore.isImageGenerationEnabled;
+  settingsStore.toggleImageGeneration(next);
+  MessagePlugin.success(next ? t('input.messages.imageGenerationEnabled') : t('input.messages.imageGenerationDisabled'));
+};
+
 const toggleKbSelector = () => {
   showKbSelector.value = !showKbSelector.value;
 }
@@ -3110,6 +3132,26 @@ defineExpose({
                   stroke-linecap="round" />
               </svg>
             </div>
+          </t-tooltip>
+
+          <!-- 生图开关（智能体配置了生图模型并勾选 generate_image 时显示） -->
+          <t-tooltip v-if="showImageGenerationButton" placement="top" theme="light"
+            :popupProps="{ overlayClassName: 'input-field-tooltip' }">
+            <template #content>
+              <span>{{ isImageGenerationEnabled ? $t('input.imageGeneration.toggleOff') :
+                $t('input.imageGeneration.toggleOn') }}</span>
+            </template>
+            <button type="button" class="control-btn image-generation-btn" :class="{ active: isImageGenerationEnabled }"
+              :aria-pressed="isImageGenerationEnabled" :aria-label="$t('input.imageGeneration.label')"
+              @click.stop="toggleImageGeneration">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round" class="control-icon image-generation-icon">
+                <rect x="2.5" y="5" width="14" height="13" rx="2.2" />
+                <circle cx="7" cy="9.5" r="1.4" />
+                <path d="M16.5 18l-4-4L6 18" />
+                <path d="M19.5 3.2l.75 1.75 1.75.75-1.75.75-.75 1.75-.75-1.75L17 5.7l1.75-.75z" />
+              </svg>
+            </button>
           </t-tooltip>
 
           <!-- 图片上传按钮（智能体未启用时不显示） -->
@@ -4043,6 +4085,35 @@ const getImgSrc = (url: string) => {
 
   strong {
     font-weight: 500;
+  }
+}
+
+.image-generation-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  min-width: auto;
+  /* 原生 button 自带灰底，会让开关看着永远处于选中态 */
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  .image-generation-icon {
+    color: var(--td-text-color-secondary);
+  }
+
+  &.active {
+    background: var(--td-bg-color-secondarycontainer);
+
+    .image-generation-icon {
+      color: var(--td-brand-color);
+    }
+  }
+
+  &:not(.active):hover {
+    background: var(--td-bg-color-secondarycontainer-hover);
   }
 }
 

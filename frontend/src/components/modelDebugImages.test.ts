@@ -18,7 +18,7 @@ const compiled = ts.transpileModule(script, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
-async function fixture(type: string, images = true, legacyVision = false) {
+async function fixture(type: string, images = true, legacyVision = false, response: Record<string, unknown> = {}) {
   const requests: any[] = []
   const revoked: string[] = []
   const props = reactive({ visible: false, models: [
@@ -32,7 +32,7 @@ async function fixture(type: string, images = true, legacyVision = false) {
     require(name: string) {
       if (name === 'vue') return require('vue')
       if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key, locale: { value: 'en-US' } }) }
-      if (name === '@/api/model') return { debugModel: async (id: string, data: any) => { requests.push({ id, ...data }); return { ok: true, elapsed_ms: 1, raw_response: [], observations: {} } } }
+      if (name === '@/api/model') return { debugModel: async (id: string, data: any) => { requests.push({ id, ...data }); return { ok: true, elapsed_ms: 1, raw_response: [], observations: {}, ...response } } }
       if (name === '@/stores/modelProviders') return { useModelProvidersStore: () => ({ ensureLoaded: async () => {}, labelFor: () => '' }) }
       if (name === '@/utils') return { fileSizeVerification: () => false }
       if (name === '@/utils/reasoningEffort') return require('../utils/reasoningEffort.ts')
@@ -175,3 +175,66 @@ for (const type of ['VLLM', 'ASR']) {
     } finally { f.dispose() }
   })
 }
+
+test('image generation sends the prompt, every reference image and the size/count options', async () => {
+  const f = await fixture('ImageGeneration')
+  try {
+    assert.equal(f.vm.showFilePicker, false, 'reference images use their own multi-file picker')
+    assert.equal(f.vm.canRun, false, 'a prompt is required')
+    f.vm.input = 'a red fox'
+    assert.equal(f.vm.canRun, true, 'reference images are optional')
+    await f.vm.runDebug()
+    assert.equal(f.requests[0].input, 'a red fox')
+    assert.equal(f.requests[0].file, null)
+    assert.deepEqual([...f.requests[0].files], [])
+    assert.deepEqual({ ...f.requests[0].options }, { size: undefined, count: 1 })
+
+    const second = { name: 'dog.png', size: 100, type: 'image/png' }
+    const target = { files: [file, second], value: 'picked' }
+    f.vm.onReferenceFilesChange({ target })
+    assert.equal(target.value, '', 'the same files can be picked again')
+    f.vm.imageSize = ' 1024x1024 '
+    f.vm.imageCount = 2
+    await f.vm.runDebug()
+    assert.deepEqual([...f.requests[1].files].map((item: File) => item.name), ['cat.png', 'dog.png'])
+    assert.deepEqual({ ...f.requests[1].options }, { size: '1024x1024', count: 2 })
+
+    f.vm.removeReferenceFile(0)
+    assert.deepEqual([...f.vm.referenceFiles].map((item: File) => item.name), ['dog.png'])
+    assert.equal(f.revoked.length, 1)
+    f.vm.selectedModelId = 'text-model'
+    await nextTick()
+    assert.equal(f.vm.referenceFiles.length, 0, 'switching models drops the references')
+    assert.equal(f.revoked.length, 2)
+  } finally { f.dispose() }
+})
+
+test('image generation shows the returned images and their revised prompts', async () => {
+  const f = await fixture('ImageGeneration', false, false, {
+    images: [
+      { data_uri: 'data:image/png;base64,AAAA', mime_type: 'image/png', revised_prompt: 'a red fox in snow' },
+      { data_uri: '', mime_type: 'image/png' },
+    ],
+    observations: { image_count: 1, input_image_count: 0 },
+  })
+  try {
+    f.vm.input = 'a red fox'
+    await f.vm.runDebug()
+    const images: Array<{ revised_prompt?: string }> = [...f.vm.generatedImages]
+    assert.deepEqual(images.map(image => image.revised_prompt), ['a red fox in snow'])
+    const metrics: Array<{ key: string; value: string }> = [...f.vm.resultMetrics]
+    assert.deepEqual(metrics.map(metric => [metric.key, metric.value]), [
+      ['image_count', '1'],
+      ['input_image_count', '0'],
+    ])
+  } finally { f.dispose() }
+})
+
+test('images in a non-image-generation response are not rendered', async () => {
+  const f = await fixture('KnowledgeQA', false, false, { images: [{ data_uri: 'data:image/png;base64,AAAA' }] })
+  try {
+    f.vm.input = 'hi'
+    await f.vm.runDebug()
+    assert.equal(f.vm.generatedImages.length, 0)
+  } finally { f.dispose() }
+})

@@ -17,6 +17,7 @@ const renderer = vue.createRenderer<any, any>({
 function fixture() {
   const dialogs: any[] = []
   const warnings: string[] = []
+  const messageErrors: string[] = []
   const window = Object.assign(new EventTarget(), { setInterval, clearInterval })
   const errors: unknown[][] = []
   const ui = vue.reactive({ showSettingsModal: false })
@@ -42,7 +43,10 @@ function fixture() {
     pinia: { storeToRefs: vue.toRefs },
     'tdesign-vue-next': {
       DialogPlugin: { confirm: (options: any) => { dialogs.push(options); return { destroy() {} } } },
-      MessagePlugin: { success() {}, error() {}, warning(message: string) { warnings.push(message) } },
+      MessagePlugin: {
+        success() {}, error(message: string) { messageErrors.push(message) },
+        warning(message: string) { warnings.push(message) },
+      },
     },
     '@/stores/ui': { useUIStore: () => ui },
     '@/stores/auth': { useAuthStore: () => ({ hasRole: () => true }) },
@@ -66,6 +70,7 @@ function fixture() {
     }).outputText
     runInNewContext(compiled, {
       exports, setTimeout, clearTimeout, CustomEvent,
+      requestAnimationFrame: (callback: () => void) => callback(),
       console: { ...console, error: (...args: unknown[]) => errors.push(args) },
       window,
       require(name: string) {
@@ -92,7 +97,10 @@ function fixture() {
     app.mount({})
     return { vm: instance.value, unmount: () => { app.unmount(); assert.deepEqual(errors, []) } }
   }
-  return { mount, dialogs, resources, chat, ui, warnings, emit: modules['@/utils/assistantDataChange'].emitAssistantDataChange }
+  return {
+    mount, dialogs, resources, chat, ui, warnings, messageErrors,
+    emit: modules['@/utils/assistantDataChange'].emitAssistantDataChange,
+  }
 }
 
 async function settle() {
@@ -121,6 +129,44 @@ test('agent creation prefills vision and ASR defaults without enabling uploads o
     vm.applyDefaultModelsIfEmpty()
     assert.equal(vm.formData.config.vlm_model_id, 'explicit-vision')
     assert.equal(vm.formData.config.asr_model_id, 'explicit-asr')
+  } finally { unmount() }
+})
+
+test('ticking image generation prefills the default 生图 model, keeps it on untick and requires one to save', async t => {
+  // The save-time field flash clears itself on a timer; keep it off the real clock.
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const f = fixture()
+  f.chat.allModels.push(
+    { id: 'painter', type: 'ImageGeneration', is_default: true, capabilities: { thinking_levels: [] } },
+  )
+  const props = vue.reactive({
+    visible: false, mode: 'edit',
+    agent: {
+      id: 'agent', name: 'Painter',
+      config: { model_id: 'model', agent_mode: 'smart-reasoning', system_prompt: 'draw', allowed_tools: ['thinking'] },
+    },
+  })
+  const { vm, unmount } = f.mount('../views/agent/AgentEditorModal.vue', props)
+  try {
+    props.visible = true
+    await settle()
+    assert.ok(!vm.formData.config.image_generation_model_id, 'an unticked tool selects no model')
+    vm.formData.config.allowed_tools.push('generate_image')
+    await vue.nextTick()
+    assert.equal(vm.formData.config.image_generation_model_id, 'painter')
+
+    vm.formData.config.image_generation_model_id = 'explicit'
+    vm.formData.config.allowed_tools = ['thinking']
+    await vue.nextTick()
+    vm.formData.config.allowed_tools = ['thinking', 'generate_image']
+    await vue.nextTick()
+    assert.equal(vm.formData.config.image_generation_model_id, 'explicit', 'unticking keeps the choice')
+
+    vm.formData.config.image_generation_model_id = ''
+    await vm.handleSave()
+    assert.deepEqual(f.messageErrors, ['agentEditor.tools.imageGenerationModelRequired'])
+    assert.equal(vm.currentSection, 'tools')
+    assert.equal(vm.saving, false)
   } finally { unmount() }
 })
 

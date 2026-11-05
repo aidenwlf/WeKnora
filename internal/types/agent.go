@@ -154,6 +154,8 @@ type AgentConfig struct {
 	ChatModelSupportsVision bool   `json:"-"` // Resolved model capability, never supplied by tool input.
 	VLMModelID              string `json:"-"` // VLM model ID for tool images, resolved from CustomAgent config.
 	SandboxConfigID         string `json:"-"` // Workspace sandbox config ID for skill execution.
+	// ImageGenerationModelID backs generate_image, resolved from CustomAgent config.
+	ImageGenerationModelID string `json:"-"`
 	// TenantSkills are the skills installed into the selected sandbox config's
 	// snapshot image, already narrowed to the ones this run can actually
 	// invoke. Runtime only: it is derived per turn from the config the agent

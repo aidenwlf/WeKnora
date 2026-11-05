@@ -68,6 +68,27 @@ func TestValidateRow(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "a catalogued image generation row resolves", modelName: "gpt-image-2",
+			modelType: types.ModelTypeImageGeneration,
+			params:    &types.ModelParameters{Provider: "openai"},
+		},
+		{
+			name: "an image default size outside its closed list is rejected", modelName: "gpt-image-1.5",
+			modelType: types.ModelTypeImageGeneration,
+			params: &types.ModelParameters{
+				Provider: "openai", Spec: &types.ModelSpecOverride{Compat: map[string]any{"default_size": "640x480"}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown image compat key is rejected", modelName: "gpt-image-2",
+			modelType: types.ModelTypeImageGeneration,
+			params: &types.ModelParameters{
+				Provider: "openai", Spec: &types.ModelSpecOverride{Compat: map[string]any{"language_param": "form"}},
+			},
+			wantErr: true,
+		},
+		{
 			name: "a catalogued chat row resolves", modelName: "deepseek-v4-pro",
 			modelType: types.ModelTypeKnowledgeQA,
 			params:    &types.ModelParameters{Provider: "deepseek"},

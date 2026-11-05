@@ -92,6 +92,7 @@ export interface CustomAgentConfig {
   image_storage_provider?: string;   // 图片存储提供商
   audio_upload_enabled?: boolean;    // 是否启用音频上传/ASR转录（默认: false）
   asr_model_id?: string;            // ASR模型ID（音频转录用）
+  image_generation_model_id?: string; // 生图模型ID（generate_image 工具用）
   // 附件图片理解 / 扫描件 OCR 开关（默认: false，开启会增加解析耗时）
   attachment_image_understanding?: boolean;
   // 扫描件 OCR 最大页数（0 = 使用全局默认 WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES）

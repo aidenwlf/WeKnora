@@ -90,6 +90,13 @@
       :data="toolData as ImageViewData"
     />
 
+    <ImageGenerationResult
+      v-else-if="displayType === 'image_generation'"
+      :data="toolData as ImageGenerationData"
+      :access="fileAccess"
+      :ready="filesReady"
+    />
+
     <McpToolResult
       v-else-if="displayType === 'mcp_discovery' || displayType === 'mcp_call'"
       :discovery="displayType === 'mcp_discovery'" :data="toolData"
@@ -151,7 +158,8 @@ import type {
   ListSandboxFilesData,
   WriteSandboxFileData,
   ReadSkillData,
-  ImageViewData
+  ImageViewData,
+  ImageGenerationData
 } from '@/types/tool-results';
 
 import SearchResults from './tool-results/SearchResults.vue';
@@ -174,8 +182,10 @@ import WriteSandboxFileResult from './tool-results/WriteSandboxFileResult.vue';
 import ReadSkillResult from './tool-results/ReadSkillResult.vue';
 import McpToolResult from './tool-results/McpToolResult.vue';
 import ImageViewResult from './tool-results/ImageViewResult.vue';
+import ImageGenerationResult from './tool-results/ImageGenerationResult.vue';
 import OperationsResult from './tool-results/OperationsResult.vue';
 import WeKnoraDocResult from './tool-results/WeKnoraDocResult.vue';
+import type { ProtectedFileAccessContext } from '@/utils/protectedFileAccess';
 
 interface Props {
   success?: boolean;
@@ -183,6 +193,10 @@ interface Props {
   toolData?: Record<string, any>;
   output?: string;
   arguments?: Record<string, any>;
+  /** Authorization scope for protected resource:// images in the result. */
+  fileAccess?: ProtectedFileAccessContext;
+  /** The owning message is persisted, so its files can be read. */
+  filesReady?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), { success: undefined });

@@ -20,6 +20,10 @@ const (
 	ModelTypeKnowledgeQA ModelType = "KnowledgeQA" // KnowledgeQA model
 	ModelTypeVLLM        ModelType = "VLLM"        // VLLM model
 	ModelTypeASR         ModelType = "ASR"         // ASR (Automatic Speech Recognition) model
+	// ModelTypeImageGeneration creates images from a prompt and, when the
+	// model accepts them, from reference images (text-to-image and
+	// image-to-image).
+	ModelTypeImageGeneration ModelType = "ImageGeneration"
 )
 
 // ModelStatus represents the status of the model
@@ -51,6 +55,8 @@ const (
 	ModelUsageBindingQueryUnderstandModel ModelUsageBinding = "query_understand_model"
 	ModelUsageBindingFollowUpModel        ModelUsageBinding = "follow_up_model"
 	ModelUsageBindingExtractModel         ModelUsageBinding = "extract_model"
+	// ModelUsageBindingImageGenerationModel is an agent's generate_image model.
+	ModelUsageBindingImageGenerationModel ModelUsageBinding = "image_generation_model"
 )
 
 // ModelUsageResource is the minimal, non-sensitive projection returned when a

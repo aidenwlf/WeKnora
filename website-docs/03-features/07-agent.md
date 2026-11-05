@@ -69,6 +69,19 @@ MCP 服务需要 OAuth 授权时，可在当前对话中完成授权，成功后
 
 长期记忆按空间和调用者隔离，智能体可单独关闭记忆读写；完整说明见[跨会话长期记忆](23-memory.md)。
 
+## 生成和修改图片
+
+在智能体编辑器的「工具配置 → 允许的工具」中勾选「生成图片」（`generate_image`），并为智能体选择一个生图模型（`image_generation_model_id`，在「设置 → 模型 → 生图」中添加，目前支持 OpenAI 兼容的 Images API）。未选生图模型、模型无法加载或模型类型不是生图时，本轮不提供该工具，对话照常进行。该工具不依赖知识库，纯对话智能体也可使用；共享智能体使用来源空间的生图模型，生成的图片保存在使用者自己的空间。
+
+工具同时支持文生图和图生图：
+
+- **文生图**：智能体根据对话写出完整的画面描述后调用模型。
+- **图生图**：智能体把参考图交给模型做修改或合成。可用的参考图有三类：本会话上传的附件图片（`attachment://att_xxxx` 表示附件本身，`attachment://att_xxxx/images/N` 表示文档中的第 N 张图，附件内容里显示的图片引用 `res://NNNN` 也可直接使用）、本会话用户消息里直接发送的图片，以及本会话中已生成的图片（含本轮刚生成的）。其他会话、知识库中的图片和空间内其他文件一律拒绝。参考图使用原始文件，不经过视觉预览压缩，单张上限 32 MiB。
+
+启用该工具后，用户消息中直接发送的图片会在发给模型的文本里附上它的引用，模型才能把这些图片当作参考图；未启用的智能体提示词保持不变。每次调用最多生成 4 张图片，尺寸写作 `WIDTHxHEIGHT`；模型声明的参考图数量上限由生图模型决定，只支持文生图的模型会拒绝带参考图的调用。单次调用的超时为 5 分钟，每次调用都会实际消耗一次生成额度。
+
+生成的图片在对话中以卡片显示，同时作为该回答的产物，可在产物面板中预览、下载或加入知识库。IM 渠道不显示工具卡片，智能体需在回答中嵌入图片引用，IM 端能否显示取决于渠道对图片的支持。
+
 ## 配置参考
 
 ### 自定义 Agent {#_7-自定义-agent}
@@ -111,7 +124,7 @@ smart-reasoning 下还可选**类型预设**（`Config.AgentType`，定义在 `c
 | 技能 | `skills_selection_mode`（all/selected/none）、`selected_skills`、`sandbox_config_id` | 选择空间沙箱及其已安装技能，见[技能目录与沙箱](22-skills-sandbox.md) |
 | 记忆 | `memory_enabled` | nil 继承空间，false 禁用本智能体的记忆读写 |
 | 知识库 | `kb_selection_mode`（all/selected/none）、`knowledge_bases`、`retrieve_kb_only_when_mentioned`、`retain_retrieval_history` | retain=true 时历史 KB 检索结果不脱敏 |
-| 多模态 | `image_upload_enabled`、`vlm_model_id`、`audio_upload_enabled`、`asr_model_id`、`image_storage_provider` | VLM 也用于 MCP 工具返回图片的描述 |
+| 多模态 | `image_upload_enabled`、`vlm_model_id`、`audio_upload_enabled`、`asr_model_id`、`image_generation_model_id`、`image_storage_provider` | VLM 也用于 MCP 工具返回图片的描述；`image_generation_model_id` 供 `generate_image` 使用，删除被引用的生图模型会被拦截 |
 | 文件 | `supported_file_types`、`chat_parser_engine_rules`、`attachment_image_understanding`、`attachment_ocr_max_pages`、`attachment_parse_wait_timeout_sec` | 数据分析型 Agent 常限定 csv/xlsx |
 | FAQ | `faq_priority_enabled`、`faq_direct_answer_threshold`、`faq_score_boost` | — |
 | Web | `web_search_enabled`、`web_search_max_results`、`web_search_provider_id`、`web_fetch_enabled`、`web_fetch_top_n` | max_results 默认 5；`web_fetch_*` 只作用于 quick-answer 管道，智能推理由模型自行调用 `web_fetch` |
@@ -433,6 +446,7 @@ flowchart TD
 | `edit_sandbox_file` | `path`\*、`edits`\*（每项 `old_string`\*、`new_string`\*、`replace_all`） | 基于原版本批量精确替换 |
 | `search_memory` | `query`\*、`limit`（默认 10，上限 20） | 按当前调用者作用域查长期记忆 |
 | `search_conversations` | `query`\*、`limit`（默认 5，上限 8） | 检索当前调用者的历史对话；范围由调用者身份决定，不接受范围参数 |
+| `generate_image` | `prompt`\*、`images[]`（参考图：`attachment://att_xxxx`、`attachment://att_xxxx/images/N` 或本会话已出现的图片引用 `res://NNNN`）、`size`（`WIDTHxHEIGHT`）、`count`（1–4，默认 1） | 用智能体的生图模型生成或修改图片；结果保存为会话所有者空间的 `resource://` 文件并作为回答产物，模型收到每张图的引用和改写后的提示词；仅在勾选该工具且生图模型可用时注册，执行超时 5 分钟 |
 | `wiki_search` | `query`\*（大小写不敏感的 POSIX 正则，如 `stardust\|skyvault`；不是合法正则的文本如 `C++` 按字面匹配）、`regex`（`false` 强制字面匹配，`true` 要求合法正则）、`knowledge_base_ids[]`（`bN`）、`limit`（每个 KB 默认 10，上限 50）；旧参数 `queries[]`、`knowledge_base_id` 仍接受 | 在 Wiki 页面（标题/slug/别名/摘要/内容）上搜索，返回带 `bN` 标记的页面 slug 与摘要；之前已返回过的页面仍列出，但省略摘要；作用域限定到文档或标签时先多取（`limit` 的 5 倍，最多 100）再按来源过滤，保留前 `limit` 条，全部被过滤时以 `filtered_out_of_scope` 说明 |
 | `wiki_read_page` | `slugs[]`\* | 按 slug 读取 Wiki 页面全文、元数据、出入链（链接附摘要，已见的省略）；知识库按 slug 自动路由；`index` slug 返回按类型分组的目录概览（每类 top 20） |
 | `wiki_write_page` | `slug`\*、`title`\*、`summary`\*、`content`\*、`page_type`\*、`aliases[]`、`source_refs[]` | 新建或整页覆盖 Wiki 页面；写入前规范化并校验 slug；自动处理出链 |

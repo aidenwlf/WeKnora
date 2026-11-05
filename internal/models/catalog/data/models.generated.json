@@ -1620,6 +1620,16 @@
         "match": "text-embedding-3*",
         "type": "Embedding",
         "source": "https://learn.microsoft.com/azure/ai-foundry/openai/how-to/reasoning"
+      },
+      {
+        "name": "gpt-image deployments",
+        "match": "gpt-image*",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/dall-e"
       }
     ],
     "deepseek": [
@@ -4326,6 +4336,98 @@
         "compat": {
           "dimensions_field": ""
         }
+      },
+      {
+        "id": "gpt-image-2.6-sunburst",
+        "name": "GPT Image 2.6 Sunburst",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "id": "gpt-image-2.6-flare",
+        "name": "GPT Image 2.6 Flare",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "id": "gpt-image-2.5-sunburst",
+        "name": "GPT Image 2.5 Sunburst",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "id": "gpt-image-2.5-flare",
+        "name": "GPT Image 2.5 Flare",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/docs/guides/image-generation"
+      },
+      {
+        "id": "gpt-image-2",
+        "name": "GPT Image 2",
+        "type": "ImageGeneration",
+        "aliases": [
+          "gpt-image-2-2026-04-21"
+        ],
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/reference/resources/images/methods/generate"
+      },
+      {
+        "id": "gpt-image-1.5",
+        "name": "GPT Image 1.5 (shuts down 2026-12-01)",
+        "type": "ImageGeneration",
+        "aliases": [
+          "gpt-image-1.5-2025-12-16"
+        ],
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/docs/deprecations",
+        "compat": {
+          "sizes": [
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
+            "auto"
+          ]
+        }
+      },
+      {
+        "id": "gpt-image-1-mini",
+        "name": "GPT Image 1 mini (shuts down 2026-12-01)",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://developers.openai.com/api/docs/deprecations",
+        "compat": {
+          "sizes": [
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
+            "auto"
+          ]
+        }
       }
     ],
     "openrouter": [
@@ -4832,6 +4934,18 @@
         "name": "BCE Reranker Base",
         "type": "Rerank",
         "source": "https://cloud.baidu.com/doc/qianfan-docs/s/7m95lyy43"
+      },
+      {
+        "id": "qwen-image",
+        "name": "Qwen-Image",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://cloud.baidu.com/doc/qianfan-api/s/8m7u6un8a",
+        "compat": {
+          "max_count": 1
+        }
       }
     ],
     "qiniu": [
@@ -5173,6 +5287,34 @@
         "source": "https://docs.requesty.ai/api-reference/endpoint/audio-transcriptions-create",
         "compat": {
           "response_format": "verbose_json"
+        }
+      },
+      {
+        "id": "openai/gpt-image-2",
+        "name": "GPT Image 2",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://docs.requesty.ai/features/image-generation"
+      },
+      {
+        "id": "azure/openai/gpt-image-1.5",
+        "name": "GPT Image 1.5 (Azure)",
+        "type": "ImageGeneration",
+        "input": [
+          "text",
+          "image"
+        ],
+        "source": "https://docs.requesty.ai/features/image-generation",
+        "compat": {
+          "sizes": [
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
+            "auto"
+          ]
         }
       }
     ],
@@ -5894,6 +6036,60 @@
         "name": "Base Multilingual Rerank",
         "type": "Rerank",
         "source": "https://www.volcengine.com/docs/84313/1254474"
+      },
+      {
+        "id": "doubao-seedream-5-0-pro-260628",
+        "name": "Doubao Seedream 5.0 Pro",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.volcengine.com/docs/ark/image-generation-api"
+      },
+      {
+        "id": "doubao-seedream-5-0-flash-260915",
+        "name": "Doubao Seedream 5.0 Flash",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.volcengine.com/docs/82379/1330310"
+      },
+      {
+        "id": "doubao-seedream-5-0-260128",
+        "name": "Doubao Seedream 5.0 (being retired)",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.volcengine.com/docs/ark/image-generation-api"
+      },
+      {
+        "id": "doubao-seedream-5-0-lite-260128",
+        "name": "Doubao Seedream 5.0 Lite (being retired)",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.volcengine.com/docs/82379/1330310"
+      },
+      {
+        "id": "doubao-seedream-4-5-251128",
+        "name": "Doubao Seedream 4.5 (being retired)",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.volcengine.com/docs/82379/1330310"
+      },
+      {
+        "id": "doubao-seedream-4-0-250828",
+        "name": "Doubao Seedream 4.0 (being retired)",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.volcengine.com/docs/82379/1330310"
       }
     ],
     "weknoracloud": [],
@@ -6172,6 +6368,42 @@
         "name": "GLM-ASR-2512 (at most 30 s per file)",
         "type": "ASR",
         "source": "https://docs.bigmodel.cn/api-reference/模型-api/语音转文本"
+      },
+      {
+        "id": "glm-image",
+        "name": "GLM-Image",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.bigmodel.cn/api-reference/模型-api/图像生成"
+      },
+      {
+        "id": "cogview-4-250304",
+        "name": "CogView-4 (250304)",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.bigmodel.cn/api-reference/模型-api/图像生成"
+      },
+      {
+        "id": "cogview-4",
+        "name": "CogView-4",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.bigmodel.cn/api-reference/模型-api/图像生成"
+      },
+      {
+        "id": "cogview-3-flash",
+        "name": "CogView-3-Flash",
+        "type": "ImageGeneration",
+        "input": [
+          "text"
+        ],
+        "source": "https://docs.bigmodel.cn/api-reference/模型-api/图像生成"
       }
     ],
     "cohere": [

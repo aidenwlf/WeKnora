@@ -122,16 +122,18 @@ func newVolcengineProvider() *Definition {
 		Auth:         AuthBearer,
 		URLPatterns:  []string{"volces.com", "volcengine"},
 		DefaultBaseURLs: map[types.ModelType]string{
-			types.ModelTypeKnowledgeQA: VolcengineBaseURL,
-			types.ModelTypeEmbedding:   VolcengineEmbeddingBaseURL,
-			types.ModelTypeRerank:      VolcengineRerankBaseURL,
-			types.ModelTypeVLLM:        VolcengineBaseURL,
+			types.ModelTypeKnowledgeQA:     VolcengineBaseURL,
+			types.ModelTypeEmbedding:       VolcengineEmbeddingBaseURL,
+			types.ModelTypeRerank:          VolcengineRerankBaseURL,
+			types.ModelTypeVLLM:            VolcengineBaseURL,
+			types.ModelTypeImageGeneration: VolcengineBaseURL,
 		},
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
 			types.ModelTypeEmbedding,
 			types.ModelTypeRerank,
 			types.ModelTypeVLLM,
+			types.ModelTypeImageGeneration,
 		},
 		// Rerank is signed with an IAM access-key pair, so the first
 		// credential is an Access Key ID rather than an Ark bearer token.
@@ -203,6 +205,19 @@ func newVolcengineProvider() *Definition {
 			return root + volcengineMultimodalEmbeddingPath, nil
 		},
 		Compat: VendorCompat{
+			// https://docs.volcengine.com/docs/ark/image-generation-api:
+			// Seedream is POST /api/v3/images/generations in JSON. There is no
+			// n (several images come from sequential_image_generation), so one
+			// image per call. Reference images go in a JSON `image` field
+			// rather than /images/edits, which this protocol does not speak, so
+			// the entries are text-to-image only. response_format url is a
+			// 24-hour link; b64_json keeps the image in the reply. size is a
+			// tier (1K/2K/4K) or WxH with per-model minimums, so none is sent
+			// unless asked.
+			Images: api.ImagesCompat{
+				ResponseFormat: api.Ptr("b64_json"),
+				MaxCount:       api.Ptr(1),
+			},
 			// https://docs.volcengine.com/docs/ark/multimodal-vectorization-api:
 			// the only embedding API Ark still lists. It fuses everything in
 			// one request into a single vector, so a request carries one text.

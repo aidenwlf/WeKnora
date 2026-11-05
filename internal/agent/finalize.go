@@ -331,8 +331,10 @@ func (e *AgentEngine) emitCompletionEvent(
 		knowledgeRefsInterface = append(knowledgeRefsInterface, ref)
 	}
 
+	// Generated images are already stored; derive them from the steps rather
+	// than tool memory so a resumed run reports exactly the same files.
 	data := event.AgentCompleteData{
-		Artifacts:       e.collaborationArtifacts(),
+		Artifacts:       append(e.collaborationArtifacts(), agenttools.GeneratedImageArtifacts(steps)...),
 		FinalAnswer:     state.FinalAnswer,
 		KnowledgeRefs:   knowledgeRefsInterface,
 		AgentSteps:      steps,

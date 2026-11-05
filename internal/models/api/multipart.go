@@ -16,34 +16,38 @@ type FormField struct {
 	Value string
 }
 
-// FormFile is the file part of a multipart form.
+// FormFile is one file part of a multipart form.
 type FormFile struct {
 	Field    string
 	FileName string
-	Data     []byte
+	// ContentType, when set, is written as the part's Content-Type. Empty
+	// writes none (see EncodeMultipart).
+	ContentType string
+	Data        []byte
 }
 
 // EncodeMultipart writes fields and one file into a multipart/form-data body
 // and returns it with its Content-Type. It is encoded once: those bytes are
 // what a signing vendor hashes and what every retry sends again.
 //
-// The file part carries a filename and no Content-Type of its own. Servers
-// identify the format from the extension then — OpenAI asks for "an
-// extension-bearing filename", and vox-box (GPUStack's audio backend) falls
-// back to guessing from it — whereas a guessed type that a server does not
-// list is rejected outright.
+// A file part without ContentType carries a filename and no Content-Type of
+// its own. Servers identify the format from the extension then — OpenAI asks
+// for "an extension-bearing filename", and vox-box (GPUStack's audio backend)
+// falls back to guessing from it — whereas a guessed type that a server does
+// not list is rejected outright.
 func EncodeMultipart(fields []FormField, file FormFile) ([]byte, string, error) {
+	return EncodeMultipartFiles(fields, []FormFile{file})
+}
+
+// EncodeMultipartFiles is EncodeMultipart for several file parts, written in
+// order before the fields.
+func EncodeMultipartFiles(fields []FormField, files []FormFile) ([]byte, string, error) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
-	header := make(textproto.MIMEHeader)
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`,
-		file.Field, filepath.Base(file.FileName)))
-	part, err := w.CreatePart(header)
-	if err != nil {
-		return nil, "", fmt.Errorf("encode form file: %w", err)
-	}
-	if _, err := part.Write(file.Data); err != nil {
-		return nil, "", fmt.Errorf("encode form file: %w", err)
+	for _, file := range files {
+		if err := writeFormFile(w, file); err != nil {
+			return nil, "", err
+		}
 	}
 	for _, f := range fields {
 		if err := w.WriteField(f.Name, f.Value); err != nil {
@@ -73,4 +77,21 @@ func (e Endpoint) PostMultipartWithRetry(
 		}
 		return e.roundTrip(req, out)
 	})
+}
+
+func writeFormFile(w *multipart.Writer, file FormFile) error {
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`,
+		file.Field, filepath.Base(file.FileName)))
+	if file.ContentType != "" {
+		header.Set("Content-Type", file.ContentType)
+	}
+	part, err := w.CreatePart(header)
+	if err != nil {
+		return fmt.Errorf("encode form file: %w", err)
+	}
+	if _, err := part.Write(file.Data); err != nil {
+		return fmt.Errorf("encode form file: %w", err)
+	}
+	return nil
 }

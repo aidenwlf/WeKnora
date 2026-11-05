@@ -29,6 +29,9 @@ const (
 	ToolDataSchema          = "data_schema"
 	ToolWebSearch           = "web_search"
 	ToolWebFetch            = "web_fetch"
+	// ToolGenerateImage generates or edits images with the agent's image
+	// generation model; registered only when that model resolves.
+	ToolGenerateImage = "generate_image"
 	// Unified reading: workspace access follows sandbox file capability;
 	// skill resources follow SkillsEnabled and do not require a sandbox.
 	// attachment:// is added whenever the session has stored attachments,
@@ -97,6 +100,7 @@ const (
 	ToolGroupWikiEdit  = "wiki_edit"
 	ToolGroupWikiIssue = "wiki_issue"
 	ToolGroupData      = "data"
+	ToolGroupImage     = "image"
 )
 
 // AvailableTool describes a tool an agent's allowed_tools list may select.
@@ -169,6 +173,12 @@ func AvailableToolDefinitions() []AvailableTool {
 		{Name: ToolWikiUpdateIssue, Label: "更新Wiki问题状态", Description: "更新特定的Wiki页面问题状态", Group: ToolGroupWikiIssue},
 		{Name: ToolDataAnalysis, Label: "数据分析", Description: "理解数据文件并进行数据分析", Group: ToolGroupData},
 		{Name: ToolDataSchema, Label: "查看数据元信息", Description: "获取表格文件的元信息", Group: ToolGroupData},
+		{
+			Name:        ToolGenerateImage,
+			Label:       "生成图片",
+			Description: "用生图模型根据文字描述生成图片，或参考用户上传、对话中已生成的图片进行修改与合成",
+			Group:       ToolGroupImage,
+		},
 	}
 }
 

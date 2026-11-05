@@ -2232,6 +2232,31 @@ func (h *InitializationHandler) CheckRerankModel(c *gin.Context) {
 	})
 }
 
+// modelCheckFailureHint names why a probe call never reached a working model
+// endpoint. unreachable is false for any other error: the endpoint answered,
+// it just disliked the probe. The caller appends the raw upstream error (see
+// classifyConnectionError).
+func modelCheckFailureHint(errMsg string) (hint string, unreachable bool) {
+	switch {
+	case strings.Contains(errMsg, "401") || strings.Contains(errMsg, "Unauthorized") || strings.Contains(errMsg, "authentication"):
+		return "认证失败，请检查API Key", true
+	case strings.Contains(errMsg, "403") || strings.Contains(errMsg, "Forbidden"):
+		// Also what proxies and endpoint-security agents answer when they
+		// block the request, so the endpoint was never actually reached.
+		return "访问被拒绝，请检查API Key权限或网络代理/安全软件拦截", true
+	case strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "context deadline exceeded"):
+		return "连接超时，请检查网络连接", true
+	case strings.Contains(errMsg, "404") || strings.Contains(errMsg, "Not Found"):
+		return "API端点不存在，请检查Base URL", true
+	case strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "no such host") || strings.Contains(errMsg, "dial tcp"):
+		return "无法连接到服务器，请检查Base URL", true
+	case strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found"):
+		return "模型不存在，请检查模型名称", true
+	default:
+		return "", false
+	}
+}
+
 // CheckASRModel godoc
 // @Summary      检查ASR模型
 // @Description  检查ASR（语音识别）模型连接是否正常，通过发送一段静默音频测试 /v1/audio/transcriptions 端点
@@ -2295,32 +2320,11 @@ func (h *InitializationHandler) CheckASRModel(c *gin.Context) {
 
 	if err != nil {
 		errMsg := err.Error()
-		// Always include the raw upstream error after the hint — see
-		// classifyConnectionError comment for rationale.
-		switch {
-		case strings.Contains(errMsg, "401") || strings.Contains(errMsg, "Unauthorized") || strings.Contains(errMsg, "authentication"):
+		if hint, unreachable := modelCheckFailureHint(errMsg); unreachable {
 			available = false
-			message = fmt.Sprintf("认证失败，请检查API Key：%s", errMsg)
-		case strings.Contains(errMsg, "403") || strings.Contains(errMsg, "Forbidden"):
-			// Also what proxies and endpoint-security agents answer when they
-			// block the request, so the endpoint was never actually reached.
-			available = false
-			message = fmt.Sprintf("访问被拒绝，请检查API Key权限或网络代理/安全软件拦截：%s", errMsg)
-		case strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "context deadline exceeded"):
-			available = false
-			message = fmt.Sprintf("连接超时，请检查网络连接：%s", errMsg)
-		case strings.Contains(errMsg, "404") || strings.Contains(errMsg, "Not Found"):
-			available = false
-			message = fmt.Sprintf("API端点不存在，请检查Base URL：%s", errMsg)
-		case strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "no such host") || strings.Contains(errMsg, "dial tcp"):
-			available = false
-			message = fmt.Sprintf("无法连接到服务器，请检查Base URL：%s", errMsg)
-		case strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found"):
-			available = false
-			message = fmt.Sprintf("模型不存在，请检查模型名称：%s", errMsg)
-		default:
+			message = fmt.Sprintf("%s：%s", hint, errMsg)
+		} else {
 			logger.Infof(ctx, "ASR check got non-fatal error (endpoint reachable): %v", err)
-			available = true
 			message = fmt.Sprintf("ASR端点可达（非致命错误: %s）", errMsg)
 		}
 	} else if text != "" {

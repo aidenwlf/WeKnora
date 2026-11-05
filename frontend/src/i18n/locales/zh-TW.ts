@@ -52,6 +52,7 @@ export default {
     "dimension": "向量維度",
     "dimensionDesc": "新增該向量模型時預填的維度，需與模型實際輸出一致。",
     "inputDesc": "模型可接收的輸入類型；勾選影像後可作為視覺模型使用。",
+    "imageGenerationInputDesc": "生圖模型可接收的輸入類型；勾選影像表示支援圖生圖（依參考圖編輯或合成）。",
     "thinkingLevels": "思考等級",
     "thinkingLevelsDesc": "對話中可選的思考強度。未勾選「關閉」表示該模型始終思考。",
     "levelsNeedReasoning": "開啟「支持思考」後可設定。",
@@ -1779,6 +1780,12 @@ export default {
       dataAnalysisDesc: '理解資料檔案並進行資料分析',
       dataSchema: '查看資料元資訊',
       dataSchemaDesc: '獲取表格檔案的元資訊',
+      generateImage: '生成圖片',
+      generateImageDesc: '根據文字描述生成圖片，或基於參考圖編輯、合成新圖',
+      imageGenerationModel: '生圖模型',
+      imageGenerationModelDesc: '生成圖片使用的模型。圖生圖會使用使用者在對話中上傳的圖片（需在「附件上傳」中開啟圖片上傳），或本次對話中已生成的圖片',
+      imageGenerationModelPlaceholder: '請選擇生圖模型',
+      imageGenerationModelRequired: '已勾選「生成圖片」，請選擇生圖模型',
       requiresKb: '（需要設定知識庫）',
       requiresRagKb: '（需要關聯啟用向量/關鍵字索引的知識庫）',
       requiresWikiKb: '（需要關聯啟用 Wiki 能力的知識庫）',
@@ -1810,6 +1817,7 @@ export default {
       groupWikiEdit: 'Wiki 編輯',
       groupWikiIssue: 'Wiki 巡檢',
       groupData: '資料分析',
+      groupImage: '圖像',
       writeWarning: '會修改 Wiki 內容',
       dangerTag: '可寫',
       statusNoKb: '當前未關聯任何知識庫',
@@ -1994,6 +2002,9 @@ export default {
       imageAnalyzing: '正在查看圖片內容...',
       imageAnalysisDone: '已查看圖片內容',
       imageAnalysisFailed: '圖片內容查看失敗',
+      imageGenerating: '正在生成圖片...',
+      imageGenerated: '已生成圖片：{count} 張',
+      imageGenerationFailed: '圖片生成失敗',
       attachmentParsing: '正在解析附件...',
       attachmentParsingDone: '已解析附件',
       attachmentParsingFailed: '附件解析失敗',
@@ -2079,6 +2090,7 @@ export default {
       thinking: '思考',
       attachmentParsing: '解析附件',
       imageAnalysis: '查看圖片內容',
+      generateImage: '生成圖片',
       queryUnderstand: '理解問題',
       queryKnowledgeGraph: '知識圖譜查詢',
       readSkill: '讀取技能',
@@ -2166,6 +2178,14 @@ export default {
       imagesUnnamed: '附件中的圖片',
       image: '{name} 第 {n} 張圖片',
       imageUnnamed: '附件第 {n} 張圖片'
+    },
+    imageGeneration: {
+      prompt: '提示詞',
+      revisedPrompt: '模型改寫後的提示詞',
+      inputImages: '參考圖 {count} 張',
+      imageLabel: '第 {n} 張圖片',
+      open: '檢視大圖',
+      empty: '沒有回傳圖片',
     },
     imageView: {
       summary: '已查看「{file}」第 {numbers} 張圖片，共 {total} 張',
@@ -3743,6 +3763,7 @@ export default {
         rerank_model: '重排序模型',
         query_understand_model: '問題理解模型',
         follow_up_model: '追問模型',
+        image_generation_model: '生圖模型',
         extract_model: '記憶提取模型',
         unknown: '其他模型設定'
       }
@@ -3765,6 +3786,8 @@ export default {
       embeddingPlaceholder: '輸入要生成 Embedding 的文字',
       vlmPrompt: '圖片提示語',
       vlmPromptPlaceholder: '例如：請詳細描述這張圖片',
+      imagePrompt: '生圖提示詞',
+      imagePromptPlaceholder: '例如：一隻在雪地裡奔跑的紅狐狸，水彩風格',
       documents: '候選文件',
       documentsPlaceholder: '每行輸入一個候選文件',
       documentsHint: '每個非空行會作為一個獨立文件傳送給 ReRank 模型',
@@ -3779,6 +3802,13 @@ export default {
       similarityImageCandidate: '圖片',
       audioFile: '音訊檔案',
       chooseFile: '選擇檔案',
+      referenceImages: '參考圖片（選填）',
+      referenceImagesHint: '未上傳時為文生圖；上傳後依參考圖編輯或合成（圖生圖），可多選',
+      imageSize: '圖片尺寸',
+      imageSizePlaceholder: '例如：1024x1024，留空使用模型預設值',
+      imageCount: '生成數量',
+      previewImage: '檢視大圖',
+      revisedPrompt: '模型改寫後的提示詞',
       parameters: '請求參數',
       systemPrompt: 'System Prompt',
       systemPromptPlaceholder: '可選，輸入系統提示語',
@@ -3801,7 +3831,9 @@ export default {
         reasoningChars: '推論字符數',
         reasoningReturned: '返回推論內容',
         textChars: '轉寫字符數',
-        segmentCount: '分段數量'
+        segmentCount: '分段數量',
+        imageCount: '生成圖片數',
+        inputImageCount: '參考圖片數'
       }
     },
     builtinModels: {
@@ -3828,6 +3860,12 @@ export default {
       builtinCannotCopy: '內建模型不能複製',
       copied: '模型已複製',
       copyFailed: '複製模型失敗'
+    },
+    image_generation: {
+      title: '生圖模型',
+      desc: '設定用於文生圖和圖生圖的影像生成模型（OpenAI 相容 Images API）',
+      empty: '暫無生圖模型',
+      imageToImage: '支援圖生圖'
     },
     asr: {
       title: 'ASR 語音模型',
@@ -3868,7 +3906,8 @@ export default {
       embedding: 'Embedding',
       rerank: 'ReRank',
       vllm: '視覺',
-      asr: '語音'
+      asr: '語音',
+      image_generation: '生圖'
     }
   },
   mcpSettings: {
@@ -4122,7 +4161,6 @@ export default {
     title: '常規設定',
     allSettings: '全部設定',
     personalSettings: '個人設定',
-    helpAndDocs: '幫助與文件',
     description: '設定語言、外觀等基礎選項',
     settings: '設定',
     close: '關閉設定'
@@ -4235,6 +4273,8 @@ export default {
       baseUrlPlaceholder: '例如：https://api.openai.com/v1',
       baseUrlPlaceholderVllm: '例如：http://localhost:11434/v1',
       baseUrlPlaceholderAsr: '例如：https://api.openai.com/v1',
+      baseUrlPlaceholderImageGeneration: '例如：https://api.openai.com/v1',
+      imageGenerationTestCost: '測試連線會實際生成一張圖片，按一次生圖呼叫計費。',
       apiKeyOptional: 'API Key（可選）',
       apiKeyPlaceholder: '輸入 API Key',
       customHeadersLabel: '自定義請求頭（可選）',
@@ -4303,7 +4343,8 @@ export default {
         remote: '例如：gpt-4, claude-3-opus',
         localVllm: '例如：llava:latest',
         remoteVllm: '例如：gpt-4-vision-preview',
-        remoteAsr: '例如：whisper-1'
+        remoteAsr: '例如：whisper-1',
+        remoteImageGeneration: '例如：gpt-image-1'
       },
       description: {
         chat: '設定用於對話的大型語言模型',
@@ -4311,6 +4352,7 @@ export default {
         rerank: '設定用於結果重排序的模型',
         vllm: '設定用於視覺理解和多模態的視覺語言模型',
         asr: '設定用於語音辨識和音訊轉錄的語音轉文字模型',
+        image_generation: '設定用於文生圖和圖生圖的影像生成模型（OpenAI 相容 Images API）',
         default: '設定模型資訊'
       }
     }
@@ -6417,6 +6459,8 @@ export default {
       webSearchNotConfigured: '未設定網路搜尋引擎，請先在設定中完成搜尋引擎選擇與介面設定。',
       webSearchEnabled: '網路搜尋已開啟',
       webSearchDisabled: '網路搜尋已關閉',
+      imageGenerationEnabled: '已開啟生圖',
+      imageGenerationDisabled: '已關閉生圖',
       sessionMissing: '會話 ID 不存在',
       messageMissing: '無法獲取訊息 ID，請重新整理頁面後重試',
       stopSuccess: '已停止生成',
@@ -6426,6 +6470,11 @@ export default {
       toggleOn: '開啟網路搜尋',
       toggleOff: '關閉網路搜尋',
       notConfigured: '未設定網路搜尋引擎'
+    },
+    imageGeneration: {
+      label: '生圖',
+      toggleOn: '開啟生圖',
+      toggleOff: '關閉生圖'
     }
   },
   manualEditor: {
@@ -6618,7 +6667,6 @@ export default {
     error: '錯誤',
     success: '成功',
     failed: '失敗',
-    info: '資訊',
     selectAll: '全選',
     yes: '是',
     no: '否',
@@ -6628,10 +6676,8 @@ export default {
     finish: '完成',
     all: '全部',
     clear: '清空',
-    website: '官方網站',
     clawhubSkill: 'Claw Skill',
     github: 'GitHub',
-    githubStarTip: '在 GitHub 打開倉庫，若覺得有用歡迎點個 Star',
     on: '開啟',
     off: '關閉',
     confirmDelete: '確認刪除',

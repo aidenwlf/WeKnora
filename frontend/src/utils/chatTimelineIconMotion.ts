@@ -110,6 +110,9 @@ export function getTimelineIconMotion(name: string, paths: string[]): TimelineIc
       return [move(parts[0], 'translate', '0 0', '2 -2', '1.5 -1.5'), trace('M5 21h8', .2)]
     case 'attach':
       return [move(parts[0], 'rotate', '0 12 12', '-16 12 12', '-12 12 12')]
+    case 'image':
+      // The scene is painted in, then the sun rises over it.
+      return [parts[0], trace(parts[1].path), move(parts[2], 'translate', '0 0', '0 -2', '0 -1.5')]
     case 'terminal':
       return [
         move(parts[0], 'translate', '0 0', '2.5 0', '2 0'),

@@ -74,6 +74,23 @@ for (const effort of [undefined, '', 'off', 'auto', 'high', 'max']) {
   })
 }
 
+for (const enabled of [true, false, undefined]) {
+  test(`SSE HTTP body keeps the 生图 switch ${enabled} explicit`, async () => {
+    let stream!: ReturnType<typeof useStream>
+    await renderToString(createSSRApp({ setup() { stream = useStream(); return () => null } }))
+    try {
+      await stream.startStream({
+        session_id: 'new-session', query: '画一只蓝色的鲸鱼', method: 'POST', url: '/api/v1/agent-chat',
+        agent_enabled: true, image_generation_enabled: enabled,
+      })
+      assert.equal(stream.error.value, null)
+      const body = JSON.parse(transport.requests.at(-1)!.options.body)
+      assert.equal(body.image_generation_enabled, enabled)
+      assert.equal(Object.hasOwn(body, 'image_generation_enabled'), enabled !== undefined)
+    } finally { stream.stopStream() }
+  })
+}
+
 for (const selected of [true, false, undefined]) {
   test(`SSE HTTP body preserves browser selection ${selected} alongside other tools`, async () => {
     let stream!: ReturnType<typeof useStream>

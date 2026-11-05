@@ -369,6 +369,9 @@ type SessionLastRequestState struct {
 	MentionedItems      MentionedItems `json:"mentioned_items,omitempty"`
 	LocalBrowserEnabled bool           `json:"local_browser_enabled"`
 	WebSearchEnabled    bool           `json:"web_search_enabled"`
+	// ImageGenerationEnabled is the composer's 生图 switch; nil means the
+	// session never carried one, so the composer shows the agent default.
+	ImageGenerationEnabled *bool `json:"image_generation_enabled,omitempty"`
 }
 
 // Value implements driver.Valuer for SessionLastRequestState (JSONB).

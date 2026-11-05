@@ -29,14 +29,18 @@ var modelCreateFields = []string{
 // still accepts the broad modelSourceValues for filtering pre-existing records.)
 var createSourceValues = []string{string(sdk.ModelSourceLocal), string(sdk.ModelSourceRemote)}
 
-// canonicalModelType maps the server's frontend term "chat" to the KnowledgeQA
-// enum — that is the server's own /models/providers vocabulary (see its
-// frontendToModelType map). The other frontend terms (embedding / rerank /
-// vllm / asr) already match the enum case-insensitively, so no alias is needed.
-// Returns the input unchanged when it isn't an alias.
+// canonicalModelType maps the server's frontend terms "chat" and
+// "image_generation" to the KnowledgeQA and ImageGeneration enums — that is the
+// server's own /models/providers vocabulary (see its frontendToModelType map).
+// The other frontend terms (embedding / rerank / vllm / asr) already match the
+// enum case-insensitively, so no alias is needed. Returns the input unchanged
+// when it isn't an alias.
 func canonicalModelType(t string) string {
-	if strings.EqualFold(strings.TrimSpace(t), "chat") {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "chat":
 		return string(sdk.ModelTypeKnowledgeQA)
+	case "image_generation":
+		return string(sdk.ModelTypeImageGeneration)
 	}
 	return t
 }
@@ -66,13 +70,16 @@ type CreateService interface {
 }
 
 // frontendModelType maps the create enum to the server's /models/providers
-// "model_type" query vocabulary (KnowledgeQA→chat, VLLM→vllm; others lowercase).
+// "model_type" query vocabulary (KnowledgeQA→chat, VLLM→vllm,
+// ImageGeneration→image_generation; others lowercase).
 func frontendModelType(t string) string {
 	switch t {
 	case string(sdk.ModelTypeKnowledgeQA):
 		return "chat"
 	case string(sdk.ModelTypeVLLM):
 		return "vllm"
+	case string(sdk.ModelTypeImageGeneration):
+		return "image_generation"
 	default:
 		return strings.ToLower(t)
 	}
@@ -83,7 +90,7 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	opts := &CreateOptions{}
 	cmd := &cobra.Command{
 		Use:   "create <name>",
-		Short: "Register a model (embedding / rerank / chat / VLLM / ASR)",
+		Short: "Register a model (embedding / rerank / chat / VLLM / ASR / image generation)",
 		Long: `Register a model on the server so it can back a knowledge base's embedding /
 summary config (see 'weknora kb config set') or an agent (--model).
 
@@ -103,8 +110,9 @@ Two modes:
                    --base-url defaults to that provider's URL for the type when
                    omitted.
 
---type accepts the server's term "chat" for KnowledgeQA (embedding/rerank/vllm/
-asr match the enum directly). Embedding models take --dimension. Pipe the
+--type accepts the server's terms "chat" for KnowledgeQA and "image_generation"
+for ImageGeneration (embedding/rerank/vllm/asr match the enum directly).
+Embedding models take --dimension. Pipe the
 provider key via --api-key-stdin so it never lands in argv/history. Anything
 else goes through repeatable --param key=value.`,
 		Args: cobra.ExactArgs(1),
@@ -163,7 +171,8 @@ else goes through repeatable --param key=value.`,
 			return runCreate(c.Context(), opts, fopts, cli, params)
 		},
 	}
-	cmd.Flags().StringVar(&opts.Type, "type", "", "Model type: "+strings.Join(modelTypeValues, " | ")+" (required; \"chat\" is accepted for KnowledgeQA)")
+	cmd.Flags().StringVar(&opts.Type, "type", "", "Model type: "+strings.Join(modelTypeValues, " | ")+
+		" (required; \"chat\" is accepted for KnowledgeQA, \"image_generation\" for ImageGeneration)")
 	cmd.Flags().StringVar(&opts.Source, "source", "", "Where the model runs: "+strings.Join(createSourceValues, " | ")+" (required; local=Ollama, remote=provider API)")
 	cmd.Flags().StringVar(&opts.Provider, "provider", "", "Remote provider id, required+validated with --source remote (see `weknora api /api/v1/models/providers`)")
 	cmd.Flags().StringVar(&opts.DisplayName, "display-name", "", "Human-friendly name (optional)")
@@ -178,7 +187,7 @@ else goes through repeatable --param key=value.`,
 	cmdutil.AddFormatFlag(cmd, modelCreateFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "register a model (embedding/rerank/chat/VLLM/ASR) so a KB or agent can use it; capture .data.id to pass to `weknora kb config set` / `agent create --model`.",
+		UsedFor:       "register a model (embedding/rerank/chat/VLLM/ASR/image generation) so a KB or agent can use it; capture .data.id to pass to `weknora kb config set` / `agent create --model`.",
 		RequiredFlags: []string{"<name> (positional)", "--type", "--source (local|remote)", "--provider (when --source remote)"},
 		Examples: []string{
 			`weknora model create nomic-embed-text --type Embedding --source local --dimension 768   # Ollama (server pulls it)`,

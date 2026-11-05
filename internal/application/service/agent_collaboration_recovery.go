@@ -310,7 +310,8 @@ func (s *AgentCollaboration) resumeParent(ctx context.Context, b *collaboration.
 
 		KnowledgeBaseIDs: saved.KnowledgeBaseIDs, KnowledgeIDs: saved.KnowledgeIDs, TagScopes: saved.TagScopes,
 		MCPServiceIDs: saved.MCPServiceIDs, SkillNames: saved.SkillNames, WebSearchEnabled: saved.WebSearchEnabled,
-		QuestionOrigin: saved.QuestionOrigin, PageContext: saved.PageContext, AssistantAccess: saved.AssistantAccess,
+		ImageGenerationEnabled: saved.ImageGenerationEnabled,
+		QuestionOrigin:         saved.QuestionOrigin, PageContext: saved.PageContext, AssistantAccess: saved.AssistantAccess,
 		Mode: types.RunModeAttended, Suspendable: true, Resume: &types.AgentResume{Snapshot: data},
 	}
 	if s.ParentSteer != nil {

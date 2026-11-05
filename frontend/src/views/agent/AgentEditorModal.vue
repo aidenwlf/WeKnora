@@ -1213,6 +1213,26 @@
             </div>
           </div>
 
+          <!-- 生图模型（勾选生成图片时必填） -->
+          <div
+            v-if="imageGenerationToolSelected"
+            class="setting-row"
+            data-agent-field="image_generation_model"
+            :class="{ 'setting-row--field-highlight': highlightedField === 'image_generation_model' }"
+          >
+            <div class="setting-info">
+              <label>{{ $t('agentEditor.tools.imageGenerationModel') }} <span class="required">*</span></label>
+              <p class="desc">{{ $t('agentEditor.tools.imageGenerationModelDesc') }}</p>
+            </div>
+            <div class="setting-control">
+              <ModelSelector model-type="ImageGeneration" :selected-model-id="formData.config.image_generation_model_id"
+                :all-models="allModels"
+                @update:selected-model-id="(val: string) => formData.config.image_generation_model_id = val"
+                @add-model="handleAddModel('image_generation')"
+                :placeholder="$t('agentEditor.tools.imageGenerationModelPlaceholder')" />
+            </div>
+          </div>
+
           <!-- 有效工具预览：所见即所得 -->
           <div class="setting-row setting-row-vertical">
             <div class="setting-info">
@@ -2036,13 +2056,17 @@ const currentSection = ref(resolveEditorSection(props.initialSection));
 useAssistantPageContext(() => props.visible && props.mode === 'edit' ? { section: currentSection.value } : null);
 const suggestionTab = ref<'starters' | 'followUps'>('starters');
 const contentWrapperRef = ref<HTMLElement | null>(null);
-const highlightedField = ref<AgentNotReadyReasonKey | null>(null);
+// Readiness reasons plus fields that only save-time validation points at.
+type HighlightField = AgentNotReadyReasonKey | 'image_generation_model';
+const highlightedField = ref<HighlightField | null>(null);
 let highlightClearTimer: ReturnType<typeof setTimeout> | null = null;
 
-const VALID_HIGHLIGHT_FIELDS: AgentNotReadyReasonKey[] = ['summary_model', 'rerank_model', 'allowed_tools'];
+const VALID_HIGHLIGHT_FIELDS: HighlightField[] = [
+  'summary_model', 'rerank_model', 'allowed_tools', 'image_generation_model',
+];
 
-const sectionForHighlightField = (field: AgentNotReadyReasonKey): string => {
-  if (field === 'allowed_tools') return 'tools';
+const sectionForHighlightField = (field: HighlightField): string => {
+  if (field === 'allowed_tools' || field === 'image_generation_model') return 'tools';
   return 'model';
 };
 
@@ -2057,9 +2081,9 @@ const clearFieldHighlight = () => {
 };
 
 const applyInitialFieldHighlight = async (field: string) => {
-  if (!VALID_HIGHLIGHT_FIELDS.includes(field as AgentNotReadyReasonKey)) return;
+  if (!VALID_HIGHLIGHT_FIELDS.includes(field as HighlightField)) return;
 
-  const targetField = field as AgentNotReadyReasonKey;
+  const targetField = field as HighlightField;
   currentSection.value = sectionForHighlightField(targetField);
 
   await nextTick();
@@ -2551,6 +2575,7 @@ const toolTexts = computed<Record<string, ToolText>>(() => ({
   wiki_update_issue: { label: t('agentEditor.tools.wikiUpdateIssue'), description: t('agentEditor.tools.wikiUpdateIssueDesc') },
   data_analysis: { label: t('agentEditor.tools.dataAnalysis'), description: t('agentEditor.tools.dataAnalysisDesc') },
   data_schema: { label: t('agentEditor.tools.dataSchema'), description: t('agentEditor.tools.dataSchemaDesc') },
+  generate_image: { label: t('agentEditor.tools.generateImage'), description: t('agentEditor.tools.generateImageDesc') },
 }));
 
 // 工具分组元信息
@@ -2561,7 +2586,11 @@ const toolGroups = computed(() => [
   { key: 'wiki_edit', label: t('agentEditor.tools.groupWikiEdit') },
   { key: 'wiki_issue', label: t('agentEditor.tools.groupWikiIssue') },
   { key: 'data', label: t('agentEditor.tools.groupData') },
+  { key: 'image', label: t('agentEditor.tools.groupImage') },
 ]);
+
+const imageGenerationToolSelected = computed(() =>
+  isAgentMode.value && (formData.value.config.allowed_tools || []).includes('generate_image'));
 
 // 知识库分组：我的 vs 共享的
 const myKbOptions = computed(() => kbOptions.value.filter(kb => !kb.shared));
@@ -2936,6 +2965,8 @@ const defaultFormData = {
     image_upload_enabled: false,
     vlm_model_id: '',
     image_storage_provider: '',
+    // 生图模型（generate_image 工具）
+    image_generation_model_id: '',
     // 附件图片理解 / 扫描件 OCR 开关（默认关闭，避免解析耗时增加）
     attachment_image_understanding: false,
     // 扫描件 OCR 最大页数（0 = 使用全局默认）
@@ -3056,6 +3087,12 @@ const agentMode = computed({
 });
 
 const isAgentMode = computed(() => agentMode.value === 'smart-reasoning');
+
+// Ticking generate_image picks the default 生图 model; unticking keeps the choice.
+watch(imageGenerationToolSelected, (selected) => {
+  if (!selected || editorInitializing.value || formData.value.config.image_generation_model_id) return;
+  formData.value.config.image_generation_model_id = selectInitialModelId(allModels.value, 'ImageGeneration') || '';
+});
 
 const effectiveDefaultMaxCompletionTokens = computed(() =>
   defaultMaxCompletionTokensFor(agentMode.value, formData.value.config.sandbox_config_id),
@@ -5092,6 +5129,12 @@ const handleSave = async () => {
   if (formData.value.config.image_upload_enabled && !formData.value.config.vlm_model_id) {
     MessagePlugin.error(t('agentEditor.imageUpload.vlmModelRequired'));
     currentSection.value = 'multimodal';
+    return;
+  }
+
+  if (imageGenerationToolSelected.value && !formData.value.config.image_generation_model_id) {
+    MessagePlugin.error(t('agentEditor.tools.imageGenerationModelRequired'));
+    void applyInitialFieldHighlight('image_generation_model');
     return;
   }
 

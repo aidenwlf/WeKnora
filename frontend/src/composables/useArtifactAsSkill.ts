@@ -35,6 +35,12 @@ export function useArtifactAsSkill() {
         artifact_index: args.index,
         config_ids: configIDs,
       })
+      // A missing payload means the endpoint answered something other than the
+      // documented envelope; say so instead of poking at undefined.
+      if (!result || typeof result.installed !== 'boolean') {
+        MessagePlugin.error(t('agent.artifactDrawer.addAsSkillFailed'))
+        return
+      }
       if (result.installed) {
         MessagePlugin.success(
           t('agent.artifactDrawer.addAsSkillStarted', { name: result.file_name || args.fileName || '' }),

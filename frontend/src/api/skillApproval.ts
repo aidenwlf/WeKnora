@@ -39,14 +39,15 @@ export interface SkillApprovalRequest {
 export async function installArtifactAsSkill(
   input: InstallArtifactAsSkillInput,
 ): Promise<InstallArtifactAsSkillResult> {
+  // `post` resolves to the response body, so the payload is `res.data`.
   const res = await post<{ data: InstallArtifactAsSkillResult }>('/api/v1/skills/install-from-artifact', input);
-  return res.data.data;
+  return res.data;
 }
 
 /** Admin queue of pending skill install requests. */
 export async function listSkillApprovalRequests(): Promise<SkillApprovalRequest[]> {
   const res = await get<{ data: SkillApprovalRequest[] }>('/api/v1/skills/approval-requests');
-  return res.data.data || [];
+  return res.data || [];
 }
 
 /** Approve a request; the server installs the bundle and closes it. */

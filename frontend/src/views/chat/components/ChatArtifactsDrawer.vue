@@ -67,6 +67,20 @@
                 </div>
                 <div class="artifact-drawer-header-title" :title="previewItem.file_name">{{ previewItem.file_name }}</div>
                 <t-button
+                    v-if="allowAddToKnowledge !== false && canInstallAsSkill(previewItem)"
+                    class="artifact-download"
+                    variant="text"
+                    shape="square"
+                    size="small"
+                    :title="$t('agent.artifactDrawer.addAsSkill')"
+                    :aria-label="$t('agent.artifactDrawer.addAsSkill')"
+                    @click="installAsSkill(previewItem)"
+                >
+                    <template #icon>
+                        <span class="artifact-action-icon" v-html="SKILL_ACTION_ICON_SVG" />
+                    </template>
+                </t-button>
+                <t-button
                     v-if="allowAddToKnowledge !== false"
                     class="artifact-download"
                     variant="text"
@@ -153,6 +167,20 @@
                     </template>
                 </t-button>
                 <t-button
+                    v-if="allowAddToKnowledge !== false && canInstallAsSkill(item)"
+                    class="artifact-download"
+                    variant="text"
+                    shape="square"
+                    size="small"
+                    :title="$t('agent.artifactDrawer.addAsSkill')"
+                    :aria-label="$t('agent.artifactDrawer.addAsSkill')"
+                    @click.stop="installAsSkill(item)"
+                >
+                    <template #icon>
+                        <span class="artifact-action-icon" v-html="SKILL_ACTION_ICON_SVG" />
+                    </template>
+                </t-button>
+                <t-button
                     v-if="allowAddToKnowledge !== false"
                     class="artifact-download"
                     variant="text"
@@ -216,6 +244,8 @@ import { computed, onMounted, onUnmounted, ref, watch, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { downloadArtifact, listMessageArtifacts, type ArtifactMeta } from '@/api/chat'
+import { useArtifactAsSkill } from '@/composables/useArtifactAsSkill'
+import { isSkillBundleFileName, SKILL_ACTION_ICON_SVG } from '@/utils/sandboxArtifactRefs'
 import { getFileIcon } from '@/utils/files'
 import { resolveFilePreviewExt } from '@/utils/filePreview'
 import DocumentPreview from '@/components/document-preview.vue'
@@ -274,6 +304,23 @@ const previewWidth = ref(PREVIEW_DEFAULT_WIDTH)
 const previewResizing = ref(false)
 const addToKbVisible = ref(false)
 const addToKbItem = ref<ArtifactMeta | null>(null)
+
+const { installFromArtifact } = useArtifactAsSkill()
+
+// Only a bundle can become a skill; other artifacts would be rejected by the
+// catalog parser, so the action stays hidden for them.
+function canInstallAsSkill(item: ArtifactMeta): boolean {
+    return isSkillBundleFileName(item.file_name)
+}
+
+function installAsSkill(item: ArtifactMeta) {
+    void installFromArtifact({
+        sessionId: props.sessionId,
+        messageId: props.messageId,
+        index: item.index,
+        fileName: item.file_name,
+    })
+}
 
 function openAddToKnowledge(item: ArtifactMeta) {
     addToKbItem.value = item
@@ -624,6 +671,13 @@ onUnmounted(() => {
 
 .artifact-meta-sep {
     opacity: 0.6;
+}
+
+.artifact-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .artifact-preview-btn,

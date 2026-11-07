@@ -73,10 +73,21 @@ const TRANSPARENT_PIXEL =
 
 type ArtifactRef = { kind: 'handle'; handle: string } | { kind: 'name'; name: string };
 
+/**
+ * Puzzle glyph for the install-as-skill action. Shared by the inline cards and
+ * the artifact lists so one action never grows two visual identities.
+ */
+export const SKILL_ACTION_ICON_SVG =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M10 4h4v1.8a2.2 2.2 0 1 0 4.4 0V4H20v4.2h-1.8a2.2 2.2 0 1 0 0 4.4H20V19h-4.4v1.8a2.2 2.2 0 1 1-4.4 0V19H4v-6.4h1.8a2.2 2.2 0 1 0 0-4.4H4V4h6z"/>'
+  + '</svg>';
+
 /** Skill bundles travel as zips; anything else cannot be a bundle. */
-function isSkillArchiveName(fileName: string): boolean {
+export function isSkillBundleFileName(fileName: string): boolean {
   return /\.zip$/i.test((fileName || '').trim());
 }
+
+const isSkillArchiveName = isSkillBundleFileName;
 
 function parseArtifactRef(href: string): ArtifactRef | null {
   const trimmed = (href || '').trim();
@@ -304,11 +315,8 @@ function renderCard(
   // that are obviously not archives.
   const skillAction = variant === 'ready' && index !== null && !!addAsSkill && isSkillArchiveName(skillFileName || fileName)
     ? `<span class="artifact-ref-card__skill" data-artifact-skill-index="${index}" role="button" tabindex="0" title="${safeSkillLabel}" aria-label="${safeSkillLabel}">`
-      // A puzzle piece: the extension/skill metaphor, and the one shape here
-      // that cannot be read as "download" or "bookmark".
-      + '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + '<path d="M10 4h4v1.8a2.2 2.2 0 1 0 4.4 0V4H20v4.2h-1.8a2.2 2.2 0 1 0 0 4.4H20V19h-4.4v1.8a2.2 2.2 0 1 1-4.4 0V19H4v-6.4h1.8a2.2 2.2 0 1 0 0-4.4H4V4h6z"/>'
-      + '</svg></span>'
+      + SKILL_ACTION_ICON_SVG
+      + '</span>'
     : '';
   return (
     `<span class="artifact-ref-card${state}"${interactive} title="${safeName}" data-artifact-name="${safeName}">`

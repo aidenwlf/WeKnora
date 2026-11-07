@@ -17,6 +17,20 @@
       <ArtifactFileIcon class="artifact-panel-header-icon" :file-name="previewItem.file_name" />
       <div class="artifact-panel-header-title" :title="previewItem.file_name">{{ previewItem.file_name }}</div>
       <t-button
+        v-if="canInstallAsSkill(previewItem)"
+        class="artifact-download"
+        variant="text"
+        shape="square"
+        size="small"
+        :title="$t('agent.artifactDrawer.addAsSkill')"
+        :aria-label="$t('agent.artifactDrawer.addAsSkill')"
+        @click="installAsSkill(previewItem)"
+      >
+        <template #icon>
+          <span class="artifact-action-icon" v-html="SKILL_ACTION_ICON_SVG" />
+        </template>
+      </t-button>
+      <t-button
         class="artifact-download"
         variant="text"
         shape="square"
@@ -137,6 +151,20 @@
             </span>
           </button>
           <t-button
+            v-if="canInstallAsSkill(item)"
+            class="artifact-download"
+            variant="text"
+            shape="square"
+            size="small"
+            :title="$t('agent.artifactDrawer.addAsSkill')"
+            :aria-label="$t('agent.artifactDrawer.addAsSkill')"
+            @click.stop="installAsSkill(item)"
+          >
+            <template #icon>
+              <span class="artifact-action-icon" v-html="SKILL_ACTION_ICON_SVG" />
+            </template>
+          </t-button>
+          <t-button
             class="artifact-download"
             variant="text"
             shape="square"
@@ -203,6 +231,8 @@ import {
   type SessionArtifactItem,
 } from '@/utils/sessionArtifacts'
 import { useChatSandboxPanel, type ArtifactPanelFocusState } from '@/composables/useChatSandboxPanel'
+import { useArtifactAsSkill } from '@/composables/useArtifactAsSkill'
+import { isSkillBundleFileName, SKILL_ACTION_ICON_SVG } from '@/utils/sandboxArtifactRefs'
 import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
 import DocumentPreview from '@/components/document-preview.vue'
 import ArtifactFileIcon from './ArtifactFileIcon.vue'
@@ -258,6 +288,23 @@ function downloadKey(item: SessionArtifactItem): string {
 function openAddToKnowledge(item: SessionArtifactItem) {
   addToKbItem.value = item
   addToKbVisible.value = true
+}
+
+const { installFromArtifact } = useArtifactAsSkill()
+
+// Only a bundle can become a skill; the rest of the list would offer an action
+// the catalog parser rejects.
+function canInstallAsSkill(item: SessionArtifactItem): boolean {
+  return isSkillBundleFileName(item.file_name)
+}
+
+function installAsSkill(item: SessionArtifactItem) {
+  void installFromArtifact({
+    sessionId: props.sessionId,
+    messageId: item.messageId,
+    index: item.index,
+    fileName: item.file_name,
+  })
 }
 
 function isDownloading(item: SessionArtifactItem): boolean {
@@ -607,6 +654,13 @@ async function handleDownload(item: SessionArtifactItem) {
 
 .artifact-meta-sep {
   opacity: 0.6;
+}
+
+.artifact-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .artifact-download.t-button {

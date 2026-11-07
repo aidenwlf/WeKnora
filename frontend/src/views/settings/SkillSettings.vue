@@ -11,6 +11,23 @@
       <p class="section-description">{{ skillText('description') }}</p>
     </div>
 
+    <!-- 技能目录与待审批是同一页面的两件事：管理员在这里既维护目录，
+         也处理成员从对话产物提交的安装申请。整个设置分区本就已经是
+         管理员可见，所以这个切换不需要再做权限判断。 -->
+    <div class="skill-settings__tabs" role="tablist">
+      <button type="button" role="tab" class="skill-settings__tab"
+        :class="{ 'skill-settings__tab--active': activeTab === 'catalog' }"
+        :aria-selected="activeTab === 'catalog'" @click="activeTab = 'catalog'">
+        {{ $t('settings.skills.tabCatalog') }}
+      </button>
+      <button type="button" role="tab" class="skill-settings__tab"
+        :class="{ 'skill-settings__tab--active': activeTab === 'approvals' }"
+        :aria-selected="activeTab === 'approvals'" @click="switchToApprovals">
+        {{ $t('settings.skills.tabApprovals') }}
+        <span v-if="pendingApprovals.length" class="skill-settings__tab-count">{{ pendingApprovals.length }}</span>
+      </button>
+    </div>
+
     <!-- Lite has no sandbox settings page, so its script kill switch is cleared here. -->
     <div v-if="hostOnly && scriptsDisabled" class="skill-settings__scripts-off" role="status">
       <p>{{ $t('settings.sandbox.scriptsDisabled') }}</p>
@@ -23,7 +40,7 @@
       <t-loading :text="$t('common.loading')" />
     </div>
 
-    <template v-else>
+    <template v-else-if="activeTab === 'catalog'">
       <Teleport to="#toolbox-toolbar" defer>
         <t-input v-if="catalog.length > 0" v-model="query" class="list-search" :placeholder="$t('menu.search')"
           :aria-label="$t('menu.search')" clearable>
@@ -172,6 +189,42 @@
           </span>
           <span class="skill-card--add__label">{{ $t('settings.skills.addSkill') }}</span>
         </button>
+      </div>
+    </template>
+
+    <template v-else>
+      <div v-if="approvalsLoading" class="loading-container">
+        <t-loading :text="$t('common.loading')" />
+      </div>
+      <div v-else-if="pendingApprovals.length === 0" class="empty-state">
+        <t-empty :description="$t('settings.skills.approvalsEmpty')" />
+      </div>
+      <div v-else class="skill-approval-list">
+        <article v-for="req in pendingApprovals" :key="req.id" class="skill-approval-card">
+          <div class="skill-approval-card__main">
+            <div class="skill-approval-card__title">{{ req.file_name || $t('settings.skills.approvalsUnnamed') }}</div>
+            <div class="skill-approval-card__meta">
+              <span>{{ $t('settings.skills.approvalsRequester') }}: {{ req.requester_id }}</span>
+              <span>{{ formatApprovalTime(req.created_at) }}</span>
+            </div>
+            <div class="skill-approval-card__meta">
+              <span>{{ $t('settings.skills.approvalsTargets') }}: {{ approvalTargetNames(req.config_ids) }}</span>
+            </div>
+          </div>
+          <div class="skill-approval-card__actions">
+            <t-input :value="rejectReasonByID[req.id] || ''" size="small" clearable
+              :placeholder="$t('settings.skills.approvalsReasonPlaceholder')"
+              @change="(value) => setRejectReason(req.id, value)" />
+            <t-button size="small" theme="primary" :loading="approvalBusyId === req.id" :disabled="approvalBusyId === req.id"
+              @click="approveApproval(req)">
+              {{ $t('settings.skills.approvalsApprove') }}
+            </t-button>
+            <t-button size="small" variant="outline" theme="default"
+              :disabled="approvalBusyId === req.id || !canReject(req)" @click="rejectApproval(req)">
+              {{ $t('settings.skills.approvalsReject') }}
+            </t-button>
+          </div>
+        </article>
       </div>
     </template>
 
@@ -410,6 +463,12 @@ import {
   type SkillCatalogRegisterResult,
 } from '@/api/skill'
 import { useSkillInstallerModel } from '@/composables/useSkillInstallerModel'
+import {
+  approveSkillApprovalRequest,
+  listSkillApprovalRequests,
+  rejectSkillApprovalRequest,
+  type SkillApprovalRequest,
+} from '@/api/skillApproval'
 import { useAssistantDataChange } from '@/utils/assistantDataChange'
 import { installOutdated, installUpgradable, servedPreviousText, upgradeVersions } from '@/utils/skillUpgrade'
 import {
@@ -1361,6 +1420,95 @@ const busyPickTargets = computed(() => {
 watch(busyPickTargets, (targets) => {
   syncInstallProgress(targets)
 }, { immediate: true })
+
+// ---------------------------------------------------------------------------
+// Pending approvals: members without catalog write permission submit a chat
+// artifact here; approving installs it with the same path a direct install uses.
+// ---------------------------------------------------------------------------
+const activeTab = ref<'catalog' | 'approvals'>('catalog')
+const pendingApprovals = ref<SkillApprovalRequest[]>([])
+const approvalsLoading = ref(false)
+const approvalBusyId = ref(0)
+
+// DOM prompt() is the one dialog TDesign does not provide a drop-in for, and
+// the rejection reason is free text the server requires, so it is collected
+// with a real input instead of a silent default.
+const rejectReasonByID = ref<Record<number, string>>({})
+
+function setRejectReason(id: number, value: unknown): void {
+  rejectReasonByID.value = { ...rejectReasonByID.value, [id]: String(value ?? '') }
+}
+
+function canReject(req: SkillApprovalRequest): boolean {
+  return (rejectReasonByID.value[req.id] || '').trim().length > 0
+}
+
+function approvalTargetNames(raw: string): string {
+  try {
+    const ids = JSON.parse(raw || '[]') as string[]
+    if (!ids.length) return '—'
+    const names = ids.map((id) => records.value.find((r) => r.id === id)?.name || id)
+    return names.join(', ')
+  } catch {
+    return raw || '—'
+  }
+}
+
+function formatApprovalTime(value: string): string {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(locale.value)
+}
+
+async function loadApprovals() {
+  approvalsLoading.value = true
+  try {
+    pendingApprovals.value = await listSkillApprovalRequests()
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || t('settings.skills.approvalsLoadFailed'))
+  } finally {
+    approvalsLoading.value = false
+  }
+}
+
+async function switchToApprovals() {
+  activeTab.value = 'approvals'
+  await loadApprovals()
+}
+
+async function approveApproval(req: SkillApprovalRequest) {
+  approvalBusyId.value = req.id
+  try {
+    await approveSkillApprovalRequest(req.id)
+    MessagePlugin.success(t('settings.skills.approvalsApproved', { name: req.file_name }))
+    await loadApprovals()
+    await load()
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || t('settings.skills.approvalsActionFailed'))
+  } finally {
+    approvalBusyId.value = 0
+  }
+}
+
+async function rejectApproval(req: SkillApprovalRequest) {
+  const reason = (rejectReasonByID.value[req.id] || '').trim()
+  if (!reason) {
+    // Ask inline instead of silently disabling: the button explains itself.
+    rejectReasonByID.value = { ...rejectReasonByID.value, [req.id]: '' }
+    MessagePlugin.warning(t('settings.skills.approvalsReasonRequired'))
+    return
+  }
+  approvalBusyId.value = req.id
+  try {
+    await rejectSkillApprovalRequest(req.id, reason)
+    MessagePlugin.success(t('settings.skills.approvalsRejected'))
+    await loadApprovals()
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || t('settings.skills.approvalsActionFailed'))
+  } finally {
+    approvalBusyId.value = 0
+  }
+}
 
 onMounted(load)
 useAssistantDataChange(() => { void loadCatalog(true) }, { areas: ['skill'] })
@@ -2344,5 +2492,103 @@ onUnmounted(() => {
   font-size: var(--app-text-base);
   font-weight: 500;
   color: var(--td-brand-color);
+}
+
+.skill-settings__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--td-component-stroke);
+}
+
+.skill-settings__tab {
+  position: relative;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--td-text-color-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--td-text-color-primary);
+  }
+
+  &--active {
+    color: var(--td-brand-color);
+    font-weight: 500;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset-inline: 8px;
+      bottom: -1px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--td-brand-color);
+    }
+  }
+}
+
+.skill-settings__tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--td-brand-color);
+  color: #fff;
+  font-size: var(--app-text-xs);
+  line-height: 1;
+}
+
+.skill-approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skill-approval-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--app-radius-md);
+}
+
+.skill-approval-card__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skill-approval-card__title {
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.skill-approval-card__meta {
+  display: flex;
+  gap: 12px;
+  font-size: var(--app-text-sm);
+  color: var(--td-text-color-secondary);
+  flex-wrap: wrap;
+}
+
+.skill-approval-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+
+  :deep(.t-input) {
+    width: 180px;
+  }
 }
 </style>

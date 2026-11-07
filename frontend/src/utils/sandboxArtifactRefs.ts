@@ -61,6 +61,8 @@ export interface ArtifactRefLabels {
   deletedHint: string;
   /** 快捷操作提示，如「加入知识库」。 */
   addToKnowledge: string;
+  /** 压缩包卡片的快捷操作提示，如「添加为技能」。空串表示不显示。 */
+  addAsSkill: string;
 }
 
 const RESOURCE_HANDLE_RE = /^resource:\/\/([A-Za-z0-9_-]{22})$/;
@@ -70,6 +72,11 @@ const TRANSPARENT_PIXEL =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
 type ArtifactRef = { kind: 'handle'; handle: string } | { kind: 'name'; name: string };
+
+/** Skill bundles travel as zips; anything else cannot be a bundle. */
+function isSkillArchiveName(fileName: string): boolean {
+  return /\.zip$/i.test((fileName || '').trim());
+}
 
 function parseArtifactRef(href: string): ArtifactRef | null {
   const trimmed = (href || '').trim();
@@ -270,10 +277,13 @@ function renderCard(
   index: number | null,
   variant: ArtifactCardVariant,
   addToKnowledge: string,
+  addAsSkill: string,
+  skillFileName: string,
 ): string {
   const safeName = escapeHTML(fileName);
   const safeHint = escapeHTML(hint);
   const safeAddLabel = escapeHTML(addToKnowledge || '');
+  const safeSkillLabel = escapeHTML(addAsSkill || '');
   // 卡片必须是内联元素：marked 会把图片包在 <p> 里，块级元素会被 HTML 解析器
   // 提到段落外面，破坏正文结构。
   const interactive = variant === 'ready' && index !== null
@@ -288,6 +298,16 @@ function renderCard(
       + '<path d="M6 4h12v17l-6-4-6 4z"/><path d="M12 8v6"/><path d="M9 11h6"/>'
       + '</svg></span>'
     : '';
+  // Installing a bundle is a zip-shaped action: the label alone is not enough,
+  // because a skill archive can be named anything. The service rejects what the
+  // catalog parser cannot read, so this check only keeps the button off files
+  // that are obviously not archives.
+  const skillAction = variant === 'ready' && index !== null && !!addAsSkill && isSkillArchiveName(skillFileName || fileName)
+    ? `<span class="artifact-ref-card__skill" data-artifact-skill-index="${index}" role="button" tabindex="0" title="${safeSkillLabel}" aria-label="${safeSkillLabel}">`
+      + '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'
+      + '</svg></span>'
+    : '';
   return (
     `<span class="artifact-ref-card${state}"${interactive} title="${safeName}" data-artifact-name="${safeName}">`
     + `<span class="artifact-ref-card__icon" aria-hidden="true">${renderArtifactFileIcon(fileName)}</span>`
@@ -296,6 +316,7 @@ function renderCard(
     + `<span class="artifact-ref-card__hint">${safeHint}</span>`
     + '</span>'
     + kbAction
+    + skillAction
     + '</span>'
   );
 }
@@ -350,7 +371,7 @@ export function renderArtifactReference(args: {
     // 继续显示「生成中」。
     const fallbackName = ref.name || (args.alt || '').trim();
     if (!fallbackName) return '';
-    return renderCard(fallbackName, args.labels.missingHint, null, 'pending', args.labels.addToKnowledge);
+    return renderCard(fallbackName, args.labels.missingHint, null, 'pending', args.labels.addToKnowledge, '', fallbackName);
   }
 
   // 用户删过的文件字节已经回收，下载会 404。图片类产物同样降级成卡片：走
@@ -358,13 +379,13 @@ export function renderArtifactReference(args: {
   if (artifact.deleted_at) {
     const name = artifact.file_name || (args.alt || '').trim();
     if (!name) return '';
-    return renderCard(name, args.labels.deletedHint, null, 'deleted', args.labels.addToKnowledge);
+    return renderCard(name, args.labels.deletedHint, null, 'deleted', args.labels.addToKnowledge, '', name);
   }
 
   if (rendersAsImage(artifact)) {
     return renderImage(artifact, args.alt || '', args.context ?? null);
   }
-  return renderCard(artifact.file_name, args.labels.previewHint, artifact.index, 'ready', args.labels.addToKnowledge);
+  return renderCard(artifact.file_name, args.labels.previewHint, artifact.index, 'ready', args.labels.addToKnowledge, args.labels.addAsSkill, artifact.file_name);
 }
 
 async function loadArtifactBlobURL(ctx: ArtifactRefContext, index: number): Promise<string | null> {
@@ -435,6 +456,15 @@ export function artifactIndexFromEventTarget(target: EventTarget | null): number
   const card = target.closest('.artifact-ref-card[data-artifact-index]');
   if (!card) return null;
   const index = Number(card.getAttribute('data-artifact-index'));
+  return Number.isInteger(index) && index >= 0 ? index : null;
+}
+
+/** The inline card's "install as skill" shortcut, when the event hit it. */
+export function artifactSkillIndexFromEventTarget(target: EventTarget | null): number | null {
+  if (!(target instanceof Element)) return null;
+  const action = target.closest('[data-artifact-skill-index]');
+  if (!action) return null;
+  const index = Number(action.getAttribute('data-artifact-skill-index'));
   return Number.isInteger(index) && index >= 0 ? index : null;
 }
 

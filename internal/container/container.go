@@ -776,6 +776,17 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	) *handler.SkillHandler {
 		return handler.NewSkillHandler(s, s, agents)
 	}))
+	// "Add this chat artifact as a skill": the session handler already owns
+	// artifact authorization, so it doubles as the bundle reader.
+	must(container.Provide(repository.NewTenantSkillApprovalRepository))
+	must(container.Provide(func(
+		approvals repository.TenantSkillApprovalRepository,
+		skills *service.TenantSkillService,
+		sessions *session.Handler,
+	) *service.SkillApprovalService {
+		return service.NewSkillApprovalService(approvals, skills, sessions)
+	}))
+	must(container.Provide(handler.NewSkillApprovalHandler))
 	must(container.Provide(handler.NewOrganizationHandler))
 	must(container.Provide(handler.NewMemoryHandler))
 	must(container.Provide(handler.NewAutomationHandler))

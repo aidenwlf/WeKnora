@@ -828,9 +828,11 @@ import { useI18n } from 'vue-i18n';
 import i18n from '@/i18n';
 import { hydrateProtectedFileImages, sanitizeMarkdownHTML } from '@/utils/security';
 import { useProtectedImageRecovery } from '@/composables/useProtectedImageRecovery';
+import { useArtifactAsSkill } from '@/composables/useArtifactAsSkill';
 import {
   artifactIndexFromEventTarget,
   artifactKnowledgeIndexFromEventTarget,
+  artifactSkillIndexFromEventTarget,
   artifactNameFromEventTarget,
   hydrateArtifactImages,
   renderArtifactReference,
@@ -1373,6 +1375,8 @@ const artifactRefLabels = computed(() => ({
   missingHint: t('agent.artifactDrawer.inlineMissing'),
   deletedHint: t('agent.artifactDrawer.inlineDeleted'),
   addToKnowledge: props.embeddedMode ? '' : t('agent.artifactDrawer.addToKnowledge'),
+  // Embedded surfaces have no workspace skill catalog to write into.
+  addAsSkill: props.embeddedMode ? '' : t('agent.artifactDrawer.addAsSkill'),
 }));
 
 const {
@@ -2681,6 +2685,8 @@ const addToKbVisible = ref(false);
 const addToKbIndex = ref(0);
 const addToKbFileName = ref('');
 
+const { installFromArtifact: installArtifactAsSkill } = useArtifactAsSkill();
+
 function openAddToKnowledgeFromCard(index: number, fileName: string) {
   if (!messageIdForArtifacts.value) return;
   addToKbIndex.value = index;
@@ -2698,6 +2704,20 @@ const onRootClick = (e: Event) => {
     e.preventDefault();
     e.stopPropagation();
     openAddToKnowledgeFromCard(kbIndex, artifactNameFromEventTarget(target));
+    return;
+  }
+
+  // Inline artifact card's "install as skill" shortcut.
+  const skillIndex = artifactSkillIndexFromEventTarget(target);
+  if (skillIndex !== null) {
+    e.preventDefault();
+    e.stopPropagation();
+    void installArtifactAsSkill({
+      sessionId: artifactRefContext.value?.sessionId || '',
+      messageId: artifactRefContext.value?.messageId || '',
+      index: skillIndex,
+      fileName: artifactNameFromEventTarget(target),
+    });
     return;
   }
 

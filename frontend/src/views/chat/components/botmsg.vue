@@ -169,6 +169,7 @@ import ChatArtifactsDrawer from './ChatArtifactsDrawer.vue'
 import AddArtifactToKnowledgeDialog from './AddArtifactToKnowledgeDialog.vue';
 import { isCollectingSkillArtifacts } from '@/utils/skillArtifacts';
 import { useArtifactArriveMotion } from '@/composables/useArtifactArriveMotion';
+import { useArtifactAsSkill } from '@/composables/useArtifactAsSkill';
 import { useChatSandboxPanel } from '@/composables/useChatSandboxPanel';
 import { persistedAssistantId } from '@/utils/steerStreamFork';
 import { sanitizeMarkdownHTML, safeMarkdownToHTML, createSafeImage, isValidImageURL, hydrateProtectedFileImages } from '@/utils/security';
@@ -176,6 +177,7 @@ import { useProtectedImageRecovery } from '@/composables/useProtectedImageRecove
 import {
     artifactIndexFromEventTarget,
     artifactKnowledgeIndexFromEventTarget,
+    artifactSkillIndexFromEventTarget,
     artifactNameFromEventTarget,
     hydrateArtifactImages,
     isArtifactRefHref,
@@ -384,6 +386,7 @@ const artifactRefLabels = computed(() => ({
     previewHint: t('agent.artifactDrawer.inlinePreviewHint'),
     missingHint: t('agent.artifactDrawer.inlineMissing'),
     deletedHint: t('agent.artifactDrawer.inlineDeleted'),
+    addAsSkill: t('agent.artifactDrawer.addAsSkill'),
     addToKnowledge: props.embeddedMode ? '' : t('agent.artifactDrawer.addToKnowledge'),
 }));
 
@@ -530,9 +533,23 @@ function openAddToKnowledgeFromCard(index, fileName) {
     addToKbVisible.value = true;
 }
 
+const { installFromArtifact: installArtifactAsSkill } = useArtifactAsSkill();
+
 // 处理 markdown-content 中图片的点击事件
 const handleMarkdownImageClick = (e) => {
     const target = e.target;
+    const skillIndex = artifactSkillIndexFromEventTarget(target);
+    if (skillIndex !== null) {
+        e.preventDefault();
+        e.stopPropagation();
+        void installArtifactAsSkill({
+            sessionId: artifactRefContext.value?.sessionId || '',
+            messageId: artifactRefContext.value?.messageId || '',
+            index: skillIndex,
+            fileName: artifactNameFromEventTarget(target),
+        });
+        return;
+    }
     const kbIndex = artifactKnowledgeIndexFromEventTarget(target);
     if (kbIndex !== null) {
         e.preventDefault();

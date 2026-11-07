@@ -98,6 +98,28 @@ func RegisterSkillRoutes(r *gin.RouterGroup, skillHandler *handler.SkillHandler,
 	}
 }
 
+// RegisterSkillApprovalRoutes registers "add this chat artifact as a skill".
+//
+// The submit endpoint is Viewer+: a member who may not write the catalog still
+// has to be able to ask for it, and the service turns that into a queued
+// request instead of an install. Deciding a request is Admin+ because approval
+// is exactly the catalog write the member lacks.
+func RegisterSkillApprovalRoutes(r *gin.RouterGroup, h *handler.SkillApprovalHandler, g *rbacGuards) {
+	if h == nil {
+		return
+	}
+	skills := r.Group("/skills")
+	{
+		skills.POST("/install-from-artifact", g.Viewer(), h.InstallFromArtifact)
+	}
+	approvals := r.Group("/skills/approval-requests")
+	{
+		approvals.GET("", g.Admin(), h.ListApprovalRequests)
+		approvals.POST("/:id/approve", g.Admin(), h.ApproveApprovalRequest)
+		approvals.POST("/:id/reject", g.Admin(), h.RejectApprovalRequest)
+	}
+}
+
 // RegisterOrganizationRoutes registers organization and sharing routes
 func RegisterOrganizationRoutes(r *gin.RouterGroup, orgHandler *handler.OrganizationHandler, g *rbacGuards) {
 	// Organization routes

@@ -13,7 +13,7 @@ import {
   type ArtifactRefMeta,
 } from './sandboxArtifactRefs.ts'
 
-const labels = { previewHint: '点击预览', missingHint: '文件不可用', deletedHint: '文件已删除', addToKnowledge: '加入知识库' }
+const labels = { previewHint: '点击预览', missingHint: '文件不可用', deletedHint: '文件已删除', addToKnowledge: '加入知识库', addAsSkill: '添加为技能' }
 
 test('inline file cards reuse the drawer icon and keep filenames escaped', () => {
   for (const name of ['report.pdf', 'table.xlsx', 'notes.docx', 'slides.pptx', 'chart.html', 'bad.<img src=x onerror=alert(1)>']) {

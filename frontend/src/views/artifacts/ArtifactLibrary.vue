@@ -104,6 +104,18 @@
                 <span>{{ item.session_title || $t('artifactLibrary.untitledSession') }}</span>
               </button>
               <t-button
+                v-if="canInstallAsSkill(item)"
+                class="row-action"
+                variant="text"
+                shape="square"
+                size="small"
+                :title="$t('agent.artifactDrawer.addAsSkill')"
+                :aria-label="$t('agent.artifactDrawer.addAsSkill')"
+                @click.stop="installAsSkill(item)"
+              >
+                <template #icon><span class="artifact-action-icon" v-html="SKILL_ACTION_ICON_SVG" /></template>
+              </t-button>
+              <t-button
                 class="row-action"
                 variant="text"
                 shape="square"
@@ -173,6 +185,18 @@
             </button>
           </div>
           <div ref="previewActions" class="preview-actions" />
+          <t-button
+            v-if="canInstallAsSkill(previewItem)"
+            class="row-action"
+            variant="text"
+            shape="square"
+            size="small"
+            :title="$t('agent.artifactDrawer.addAsSkill')"
+            :aria-label="$t('agent.artifactDrawer.addAsSkill')"
+            @click="installAsSkill(previewItem)"
+          >
+            <template #icon><span class="artifact-action-icon" v-html="SKILL_ACTION_ICON_SVG" /></template>
+          </t-button>
           <t-button
             class="row-action"
             variant="text"
@@ -267,6 +291,8 @@ import ResourceIcon from '@/components/icons/ResourceIcon.vue'
 import DocumentPreview from '@/components/document-preview.vue'
 import ArtifactFileIcon from '@/views/chat/components/ArtifactFileIcon.vue'
 import AddArtifactToKnowledgeDialog from '@/views/chat/components/AddArtifactToKnowledgeDialog.vue'
+import { useArtifactAsSkill } from '@/composables/useArtifactAsSkill'
+import { isSkillBundleFileName, SKILL_ACTION_ICON_SVG } from '@/utils/sandboxArtifactRefs'
 
 const PAGE_SIZE = 30
 const SEARCH_DEBOUNCE_MS = 300
@@ -292,6 +318,23 @@ const addToKbItem = ref<ArtifactLibraryItem | null>(null)
 function openAddToKnowledge(item: ArtifactLibraryItem) {
   addToKbItem.value = item
   addToKbVisible.value = true
+}
+
+const { installFromArtifact } = useArtifactAsSkill()
+
+// The library lists every artifact in the workspace, most of which are not
+// installable bundles; only a zip can become a skill.
+function canInstallAsSkill(item: ArtifactLibraryItem): boolean {
+  return isSkillBundleFileName(item.file_name)
+}
+
+function installAsSkill(item: ArtifactLibraryItem) {
+  void installFromArtifact({
+    sessionId: item.session_id,
+    messageId: item.message_id,
+    index: item.index,
+    fileName: item.file_name,
+  })
 }
 const previewVisible = ref(false)
 const previewActions = ref<HTMLElement | null>(null)
@@ -722,6 +765,13 @@ onBeforeUnmount(() => {
       background: transparent;
     }
   }
+}
+
+.artifact-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .row-action.t-button {

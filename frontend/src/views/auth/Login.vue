@@ -101,6 +101,30 @@
       <span class="logo-name">WunoOS</span>
     </div>
 
+    <!-- Language switch - Top Right -->
+    <div class="header-links">
+      <div class="language-switch">
+        <button type="button" @click="toggleLanguageMenu" class="header-link" :title="currentLangOption?.label"
+          :aria-label="currentLangOption?.label">
+          <span class="lang-flag-icon">{{ currentLangOption?.flag }}</span>
+          <span class="link-text">{{ currentLangOption?.shortLabel }}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        <div v-if="showLanguageMenu" class="language-dropdown">
+          <div v-for="lang in languageOptions" :key="lang.value" @click="selectLanguage(lang.value)"
+            class="language-option" :class="{ active: currentLanguage === lang.value }">
+            <span class="lang-flag">{{ lang.flag }}</span>
+            <span class="lang-label">{{ lang.label }}</span>
+            <span v-if="currentLanguage === lang.value" class="check-icon">✓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Left Showcase Section -->
     <div class="showcase-section">
       <div class="showcase-content">
@@ -369,6 +393,7 @@ const registerFormRef = ref()
 
 // State management
 const loading = ref(false)
+const showLanguageMenu = ref(false)
 const oidcLoading = ref(false)
 const isRegisterMode = ref(false)
 const oidcEnabled = ref(false)
@@ -387,6 +412,19 @@ const inviteToken = ref('')
 const inviteLookup = ref<InviteLookup | null>(null)
 const inviteLookupError = ref('')
 const inviteLookupLoading = ref(false)
+
+// Language options
+const languageOptions = [
+  { value: 'zh-CN', label: '简体中文', shortLabel: '中文', flag: '🇨🇳' },
+  { value: 'zh-TW', label: '繁體中文', shortLabel: '繁中', flag: '繁' },
+  { value: 'en-US', label: 'English', shortLabel: 'EN', flag: '🇺🇸' },
+  { value: 'ru-RU', label: 'Русский', shortLabel: 'RU', flag: '🇷🇺' },
+  { value: 'ko-KR', label: '한국어', shortLabel: '한국어', flag: '🇰🇷' },
+  { value: 'ja-JP', label: '日本語', shortLabel: '日本語', flag: '🇯🇵' }
+]
+
+const currentLanguage = computed(() => locale.value)
+const currentLangOption = computed(() => languageOptions.find(l => l.value === currentLanguage.value))
 
 const oidcLoginText = computed(() => {
   if (oidcProviderName.value) {
@@ -674,6 +712,35 @@ const handleRegister = async () => {
 }
 
 // Check if already logged in; for lite edition, attempt transparent auto-setup
+// Toggle language menu
+const toggleLanguageMenu = () => {
+  showLanguageMenu.value = !showLanguageMenu.value
+}
+
+// Select language
+const selectLanguage = (lang: string) => {
+  locale.value = lang
+  localStorage.setItem('locale', lang)
+  showLanguageMenu.value = false
+  MessagePlugin.success(t('language.languageSaved'))
+}
+
+// Close language menu when clicking outside
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.language-switch')) {
+    showLanguageMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
 onMounted(async () => {
   // Share-link landing: ?token=xxx switches the form into invite-
   // register mode before any other auto-flow (logged-in redirect /
@@ -1131,6 +1198,123 @@ onMounted(async () => {
   }
 }
 
+.header-links {
+  position: fixed;
+  top: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+}
+
+.header-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--td-text-color-anti);
+  text-decoration: none;
+  font-size: var(--app-text-md);
+  font-weight: 600;
+  font-family: var(--app-font-family);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  position: relative;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  .link-text {
+    line-height: 1;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: var(--td-text-color-anti);
+  }
+}
+
+.language-switch {
+  position: relative;
+
+  button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: var(--td-text-color-anti);
+
+    .lang-flag-icon {
+      font-size: var(--app-text-xl);
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    svg:last-child {
+      margin-left: 2px;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.language-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 160px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--app-radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: var(--app-text-md);
+  font-family: var(--app-font-family);
+  color: var(--td-text-color-primary);
+
+  .lang-flag {
+    font-size: var(--app-text-xl);
+    flex-shrink: 0;
+  }
+
+  .lang-label {
+    flex: 1;
+  }
+
+  .check-icon {
+    color: var(--td-success-color);
+    font-weight: 700;
+    font-size: var(--app-text-base);
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: var(--td-bg-color-secondarycontainer);
+  }
+
+  &.active {
+    background: var(--td-brand-color-light);
+    color: var(--td-brand-color-active);
+  }
+}
+
 .form-card {
   background: rgba(255, 255, 255, 0.97);
   border-radius: 16px;
@@ -1466,6 +1650,21 @@ onMounted(async () => {
     }
   }
 
+
+  .header-links {
+    top: 22px;
+    right: 22px;
+    gap: 8px;
+
+    .link-text {
+      display: none;
+    }
+
+    .header-link {
+      padding: 10px;
+      gap: 0;
+    }
+  }
 }
 
 @media (max-width: 768px) {
@@ -1530,6 +1729,21 @@ onMounted(async () => {
   .form-title {
     font-size: 22px;
   }
+
+  .header-links {
+    top: 18px;
+    right: 18px;
+    gap: 8px;
+
+    .link-text {
+      display: inline;
+    }
+
+    .header-link {
+      padding: 8px 12px;
+      font-size: var(--app-text-sm);
+    }
+  }
 }
 
 @media (max-width: 480px) {
@@ -1571,6 +1785,22 @@ onMounted(async () => {
 
   .form-header {
     margin-bottom: 24px;
+  }
+
+  .header-links {
+    top: 14px;
+    right: 14px;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    .link-text {
+      display: none;
+    }
+
+    .header-link {
+      padding: 7px 10px;
+      font-size: var(--app-text-xs);
+    }
   }
 }
 

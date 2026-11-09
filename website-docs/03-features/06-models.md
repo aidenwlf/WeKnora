@@ -299,7 +299,7 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 
 ## 内置厂商
 
-内置 31 个厂商，另可通过 Ollama 接入本地模型。各厂商支持的模型类型如下（✓ 表示支持）：
+内置 32 个厂商，另可通过 Ollama 接入本地模型。各厂商支持的模型类型如下（✓ 表示支持）：
 
 | 厂商 | ID | 对话 | 向量 | 重排 | 视觉 | 语音 | 生图 |
 | --- | --- | :-: | :-: | :-: | :-: | :-: | :-: |
@@ -734,3 +734,29 @@ return wrapChatConcurrency(c, config.MaxConcurrency, err)
 GPUStack 的默认值仍为 `logit`，依据其[重排 API 文档](https://docs.gpustack.ai/2.0/user-guide/rerank-api/)中 `bge-reranker-v2-m3` 返回负数及大于 1 的示例；这不代表所有 BGE 或 Qwen3 部署都输出 logit。如果该端点已经输出概率，请在模型配置中显式选择 `probability`。同样的规则适用于自定义和 LiteLLM 端点。原始 logit 也可能恰好落在 0~1，不能只看单次响应的取值范围自动判断。
 
 本修正不自动修改已保存的 `score_scale`，也不改变提供商默认值。受影响的既有模型需检查服务端输出并手动调整分数标度；不会因此新增模型调用或自动重建向量。
+
+### Runcrate
+
+Runcrate 是提供 OpenAI 兼容推理 API 的 GPU 云，默认地址为 `https://api.runcrate.ai/v1`，
+对话、向量和视觉模型共用该地址，模型 ID 带厂商前缀（如 `deepseek-ai/DeepSeek-V4.1-Flash`）。
+使用 GitHub 账号即可免费使用开源模型，API Key 在
+[Runcrate 控制台](https://www.runcrate.ai/dashboard/api-keys?utm_source=WeKnora&utm_medium=directory&utm_campaign=gpu_pricing)创建。
+
+通过 `POST /api/v1/models` 创建向量模型时，请求体示例：
+
+```json
+{
+  "name": "Qwen/Qwen3-Embedding-8B",
+  "type": "Embedding",
+  "source": "remote",
+  "parameters": {
+    "provider": "runcrate",
+    "base_url": "https://api.runcrate.ai/v1",
+    "api_key": "your-runcrate-api-key"
+  }
+}
+```
+
+思考强度通过 `reasoning_effort` 发送，关闭思考时发送 `none`；GLM-5.3、GLM-5.3 Flash、
+Qwen3.8 Flash 和 gpt-oss 120B 的思考无法关闭，目录中不提供「关闭」档位。
+

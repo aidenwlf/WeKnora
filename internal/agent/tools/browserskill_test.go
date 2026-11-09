@@ -70,6 +70,10 @@ func TestBrowserWaitRequiresDocumentedDuration(t *testing.T) {
 	ctx = context.WithValue(ctx, types.UserIDContextKey, "alice")
 	tool := NewBrowserSkillTool(nil, browserskill.Scope{Tenant: 7, User: "alice"}, "chat")
 	require.NoError(t, tool.ValidateArguments(
+		json.RawMessage(`{"method":"wait_ms","duration_ms":1000}`),
+	))
+	// 0.4.1 dropped the tab argument: waiting is not a tab-scoped action.
+	require.Error(t, tool.ValidateArguments(
 		json.RawMessage(`{"method":"wait_ms","duration_ms":1000,"tab_id":3}`),
 	))
 	for _, raw := range []string{

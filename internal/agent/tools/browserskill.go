@@ -78,7 +78,8 @@ func (t *BrowserSkillTool) Execute(ctx context.Context, args json.RawMessage) (*
 	if reason := t.blocked.Load(); reason != nil {
 		return &types.ToolResult{Success: false, Error: *reason, Output: *reason}, nil
 	}
-	args = normalizeBrowserArguments(args)
+	// Upstream's 0.4.1 contract requires `method`; a missing one is reported by
+	// ValidateArguments instead of being inferred here.
 	if err := t.ValidateArguments(args); err != nil {
 		t.failed.Store(true)
 		return &types.ToolResult{Success: false, Error: "Invalid browser arguments: " + err.Error()}, nil

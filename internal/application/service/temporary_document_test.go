@@ -104,6 +104,28 @@ func TestTemporaryDocumentSupportsXMindWithoutEngineDiscovery(t *testing.T) {
 	}
 }
 
+// A DWG is a binary CAD drawing: it must be accepted into a conversation, but
+// no parser can read it, so the notice (not a failed parse) is what the model
+// sees.
+func TestTemporaryDocumentAcceptsOpaqueDWG(t *testing.T) {
+	svc := &temporaryDocumentService{}
+	if !svc.supportsExtension(context.Background(), 1, ".dwg") {
+		t.Fatal("DWG must be accepted even when engine discovery is unavailable")
+	}
+	if !isOpaqueAttachmentFileType(".DWG") {
+		t.Fatal("DWG must be treated as an opaque attachment, case-insensitively")
+	}
+	if isOpaqueAttachmentFileType(".pdf") {
+		t.Fatal("a parseable format must not be treated as opaque")
+	}
+	notice := opaqueAttachmentNotice("三视图.dwg")
+	for _, want := range []string{"三视图.dwg", "DWG", "PDF", "DXF"} {
+		if !strings.Contains(notice, want) {
+			t.Fatalf("notice %q is missing %q", notice, want)
+		}
+	}
+}
+
 func TestCollectImageBytes(t *testing.T) {
 	refs := []types.ImageRef{
 		{ImageData: []byte("a")},

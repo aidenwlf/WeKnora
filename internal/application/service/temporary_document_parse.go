@@ -100,7 +100,17 @@ func (s *temporaryDocumentService) Process(ctx context.Context, task *asynq.Task
 	if tenant, tenantErr := s.tenantService.GetTenantByID(ctx, resourceTenantID); tenantErr == nil && tenant != nil {
 		ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenant)
 	}
-	content, images, metadata, parseErr := s.parse(ctx, document)
+	var (
+		content  string
+		images   []types.TemporaryDocumentImage
+		metadata map[string]string
+		parseErr error
+	)
+	if isOpaqueAttachmentFileType(document.FileType) {
+		content = opaqueAttachmentNotice(document.FileName)
+	} else {
+		content, images, metadata, parseErr = s.parse(ctx, document)
+	}
 	if parseErr != nil {
 		retryCount, hasRetryCount := asynq.GetRetryCount(ctx)
 		maxRetry, hasMaxRetry := asynq.GetMaxRetry(ctx)

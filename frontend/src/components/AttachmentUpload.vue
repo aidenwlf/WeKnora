@@ -51,6 +51,9 @@ let disposed = false;
 const supportedTypes = ref([
   // Documents
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.epub', '.mhtml', '.xmind',
+  // CAD drawings are stored and downloadable but have no text to extract; the
+  // backend answers with a notice instead of failing the attachment.
+  '.dwg',
   // Text
   '.txt', '.md', '.csv', '.json', '.xml', '.html',
 	'.markdown', '.yaml', '.yml', '.log',

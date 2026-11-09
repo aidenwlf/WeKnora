@@ -31,6 +31,38 @@ var temporaryDocumentExtensions = map[string]struct{}{
 	".md": {}, ".markdown": {}, ".txt": {}, ".csv": {}, ".json": {}, ".xml": {}, ".yaml": {}, ".yml": {}, ".log": {}, ".html": {},
 	".jpg": {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".bmp": {}, ".tiff": {}, ".webp": {},
 	".mp3": {}, ".wav": {}, ".m4a": {}, ".flac": {}, ".ogg": {}, ".aac": {},
+	// CAD drawings: accepted so a conversation can carry them, not because they
+	// can be parsed. See temporaryOpaqueExtensions.
+	".dwg": {},
+}
+
+// temporaryOpaqueExtensions are attachment formats that are stored and made
+// downloadable but have no text to extract. Storing them keeps the file in the
+// conversation (the user can download it, and the agent can name it and hand
+// it to a sandbox tool); the parse step answers with a notice instead of
+// failing, so the model knows why there is nothing to read rather than seeing
+// an attachment that looks broken.
+var temporaryOpaqueExtensions = map[string]struct{}{
+	".dwg": {},
+}
+
+// isOpaqueAttachmentFileType reports whether an attachment is stored without
+// parsing.
+func isOpaqueAttachmentFileType(ext string) bool {
+	_, ok := temporaryOpaqueExtensions[strings.ToLower(strings.TrimSpace(ext))]
+	return ok
+}
+
+// opaqueAttachmentNotice is what the model reads instead of document content.
+// It has to say what the file is, that it is still available, and what the user
+// can do to make the drawing analysable.
+func opaqueAttachmentNotice(fileName string) string {
+	return fmt.Sprintf("`%s` is an AutoCAD drawing (DWG), a binary CAD format. "+
+		"Nothing in the current parsing chain can extract text or geometry from it, "+
+		"so there is no document content to read here; the file itself is stored and "+
+		"can be downloaded. If the drawing needs to be analysed, ask the user to export "+
+		"it as PDF (which keeps the title block and annotations) or DXF and upload that "+
+		"instead.", fileName)
 }
 
 var temporaryTextExtensions = map[string]struct{}{

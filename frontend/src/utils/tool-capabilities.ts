@@ -27,7 +27,7 @@
  * defaults to "always available" so new tools don't silently start disabled.
  */
 
-export type KBCapability = 'vector' | 'keyword' | 'wiki' | 'graph' | 'faq';
+export type KBCapability = 'vector' | 'keyword' | 'wiki' | 'graph' | 'faq' | 'univer';
 
 export interface ToolRequirement {
   anyOf?: KBCapability[];
@@ -94,6 +94,11 @@ export const TOOL_CAPABILITY_REQUIREMENTS: Record<string, ToolRequirement> = {
 
   // ---- Image generation (reads chat images, never knowledge-base files) ----
   generate_image: { consumesFiles: false },
+
+  // ---- Collaborative knowledge bases (live units, no chunks) ----
+  univer_list_units:  { anyOf: ['univer'] },
+  univer_read_unit:   { anyOf: ['univer'] },
+  univer_update_unit: { anyOf: ['univer'] },
 };
 
 /**
@@ -106,6 +111,8 @@ export interface ScopeCapabilities {
   wiki: boolean;
   graph: boolean;
   faq: boolean;
+  /** Live collaborative units (spreadsheets, documents, tables, slides). */
+  univer: boolean;
 }
 
 /**
@@ -168,6 +175,7 @@ function primaryMissKind(c: KBCapability): RequirementMissKind {
     case 'wiki':    return 'needsWiki';
     case 'graph':   return 'needsGraph';
     case 'faq':     return 'needsFaq';
+    case 'univer':  return 'needsKb';
     case 'vector':
     case 'keyword': return 'needsRag';
   }

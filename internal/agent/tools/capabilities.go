@@ -26,6 +26,8 @@ const (
 	CapWiki    KBCapability = "wiki"
 	CapGraph   KBCapability = "graph"
 	CapFAQ     KBCapability = "faq"
+	// CapUniver marks a knowledge base of live collaborative units.
+	CapUniver KBCapability = "univer"
 )
 
 // ToolRequirement declares what a tool needs from the KB scope.
@@ -92,6 +94,11 @@ var ToolCapabilityRequirements = map[string]ToolRequirement{
 	// ---- Data analysis (reads table summary/column chunks from RAG ingest) ----
 	"data_analysis": {AnyOf: []KBCapability{CapVector, CapKeyword}, ConsumesFiles: true},
 	"data_schema":   {AnyOf: []KBCapability{CapVector, CapKeyword}, ConsumesFiles: true},
+
+	// ---- Collaborative knowledge bases (live units, no chunks) ----
+	"univer_list_units":  {AnyOf: []KBCapability{CapUniver}},
+	"univer_read_unit":   {AnyOf: []KBCapability{CapUniver}},
+	"univer_update_unit": {AnyOf: []KBCapability{CapUniver}},
 }
 
 // documentReaderRequirement: document readers work on stored chunks, which

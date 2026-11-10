@@ -2142,7 +2142,7 @@ onBeforeUnmount(() => {
 const saving = ref(false);
 const editorInitializing = ref(false);
 const allModels = ref<ModelConfig[]>([]);
-const kbOptions = ref<{ label: string; value: string; type?: 'document' | 'faq'; count?: number; shared?: boolean; orgName?: string; ragEnabled?: boolean; wikiEnabled?: boolean; capabilities?: KBCapabilities }[]>([]);
+const kbOptions = ref<{ label: string; value: string; type?: 'document' | 'faq' | 'univer'; count?: number; shared?: boolean; orgName?: string; ragEnabled?: boolean; wikiEnabled?: boolean; capabilities?: KBCapabilities }[]>([]);
 
 // 智能体类型预设（仅 smart-reasoning 模式下展示）
 const agentTypePresets = ref<AgentTypePreset[]>([]);
@@ -2645,7 +2645,7 @@ const hasFaqKnowledgeBase = computed(() => {
 // 把"作用域内 KB 能力"聚合成一个 ScopeCapabilities 对象，交给
 // `evaluateToolRequirement` 统一判定；UI 上的所有可用性提示都应出自此处。
 const scopeCapabilities = computed<ScopeCapabilities>(() => {
-  const scope: ScopeCapabilities = { vector: false, keyword: false, wiki: false, graph: false, faq: false };
+  const scope: ScopeCapabilities = { vector: false, keyword: false, wiki: false, graph: false, faq: false, univer: false };
   for (const kb of kbsInScope.value) {
     const caps = kb.capabilities;
     if (caps) {
@@ -2654,11 +2654,13 @@ const scopeCapabilities = computed<ScopeCapabilities>(() => {
       if (caps.wiki) scope.wiki = true;
       if (caps.graph) scope.graph = true;
       if (caps.faq) scope.faq = true;
+      if (caps.univer) scope.univer = true;
     } else {
       // 向后兼容：capabilities 尚未加载时，退回到 ragEnabled/wikiEnabled 推断
       if (kb.ragEnabled) { scope.vector = true; scope.keyword = true; }
       if (kb.wikiEnabled) scope.wiki = true;
       if (kb.type === 'faq') scope.faq = true;
+      if (kb.type === 'univer') scope.univer = true;
     }
   }
   return scope;

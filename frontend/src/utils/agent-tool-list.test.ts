@@ -24,7 +24,7 @@ const catalog: AgentToolCatalog = {
   switch_managed_tools: ['web_search', 'search_memory'],
 }
 
-const noKb: ScopeCapabilities = { vector: false, keyword: false, wiki: false, graph: false, faq: false }
+const noKb: ScopeCapabilities = { vector: false, keyword: false, wiki: false, graph: false, faq: false, univer: false }
 const ragKb: ScopeCapabilities = { ...noKb, vector: true, keyword: true }
 const noText = () => undefined
 

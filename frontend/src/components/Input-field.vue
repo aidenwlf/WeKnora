@@ -421,6 +421,7 @@ const kbToScopeCaps = (kb: any): Partial<ScopeCapabilities> => {
       wiki: !!kb.capabilities.wiki,
       graph: !!kb.capabilities.graph,
       faq: !!kb.capabilities.faq,
+      univer: !!kb.capabilities.univer,
     };
   }
   const s = kb?.indexing_strategy;
@@ -430,6 +431,7 @@ const kbToScopeCaps = (kb: any): Partial<ScopeCapabilities> => {
     wiki: s ? !!s.wiki_enabled : false,
     graph: s ? !!s.graph_enabled : false,
     faq: kb?.type === 'faq',
+    univer: kb?.type === 'univer',
   };
 };
 

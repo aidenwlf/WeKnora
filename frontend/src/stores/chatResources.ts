@@ -16,6 +16,9 @@ type ResourceKey = 'knowledgeBases' | 'agents' | 'models' | 'webSearchProviders'
 export type ListCreatorFilter = 'all' | 'mine' | 'others'
 
 function isKbModelReady(kb: any): boolean {
+  // Collaborative knowledge bases hold live units: they need no summary or
+  // embedding model, and must stay selectable in chat scope.
+  if (kb?.type === 'univer') return true
   if (!kb.summary_model_id || kb.summary_model_id === '') return false
   const strategy = kb.indexing_strategy
   const needsEmbedding = !strategy || strategy.vector_enabled || strategy.keyword_enabled

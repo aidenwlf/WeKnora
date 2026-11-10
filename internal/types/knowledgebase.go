@@ -947,6 +947,9 @@ type KBCapabilities struct {
 	Graph bool `json:"graph"`
 	// FAQ means the KB is a FAQ-type KB (Q/A pairs).
 	FAQ bool `json:"faq"`
+	// Univer means the KB holds live collaborative units (spreadsheets,
+	// documents, multi-dimensional tables, slide decks) instead of chunks.
+	Univer bool `json:"univer"`
 }
 
 // Capabilities returns the computed capability flags for this KB.
@@ -959,7 +962,9 @@ func (kb *KnowledgeBase) Capabilities() KBCapabilities {
 	// retrieval: reporting capabilities here would advertise RAG tools that
 	// can only come back empty.
 	if kb.IsUniver() {
-		return KBCapabilities{}
+		// Live collaborative units are their own capability: retrieval
+		// pipelines stay empty, but the univer tools apply.
+		return KBCapabilities{Univer: true}
 	}
 	return KBCapabilities{
 		Vector:  kb.IsVectorEnabled(),

@@ -35,12 +35,13 @@
               >
                 <t-radio-button value="document">{{ $t('knowledgeEditor.basic.typeDocument') }}</t-radio-button>
                 <t-radio-button value="faq">{{ $t('knowledgeEditor.basic.typeFAQ') }}</t-radio-button>
+                <t-radio-button value="univer">{{ $t('knowledgeEditor.basic.typeUniver') }}</t-radio-button>
               </t-radio-group>
               <p class="form-tip">{{ $t('knowledgeEditor.basic.typeDescription') }}</p>
             </div>
 
             <!-- 索引策略 (紧跟类型选择) -->
-            <div v-if="!isFAQ" class="form-item">
+            <div v-if="!isFAQ && !isUniver" class="form-item">
               <label class="form-label required">{{ $t('knowledgeEditor.indexing.title') }}</label>
               <p class="form-tip">{{ $t('knowledgeEditor.indexing.description') }}</p>
               <div class="indexing-checks" :class="{ 'is-locked': isIndexingLocked }"
@@ -859,6 +860,9 @@ const navGroups = computed(() => {
   const itemMap = new Map(navItems.value.map((item) => [item.key, item]))
   const pickItems = (keys: string[]) =>
     keys.map((key) => itemMap.get(key)).filter(Boolean) as typeof navItems.value
+  if (isUniver.value) {
+    return [{ key: 'basic', label: t('knowledgeEditor.navGroups.basic'), items: pickItems(['basic']) }]
+  }
   return [
     {
       key: 'basic',
@@ -902,6 +906,9 @@ const embeddingTakesImages = computed(() => {
   return !model || !!model.capabilities?.input?.includes('image')
 })
 const isFAQ = computed(() => formData.value?.type === 'faq')
+// A collaborative knowledge base holds live units; parsing/indexing sections
+// do not apply to it.
+const isUniver = computed(() => formData.value?.type === 'univer')
 
 const kbCreateNeedsEmbedding = computed(() => {
   if (!formData.value || formData.value.type === 'faq') return false
@@ -1492,6 +1499,10 @@ const validateForm = (): boolean => {
     return false
   }
 
+  if (isUniver.value) {
+    return true
+  }
+
   // 验证索引策略 — 文档类型至少需要开启一种
   if (formData.value.type !== 'faq') {
     const s = formData.value.indexingStrategy
@@ -1544,6 +1555,21 @@ const validateForm = (): boolean => {
 // 构建提交数据
 const buildSubmitData = () => {
   if (!formData.value) return null
+
+  // Collaborative knowledge bases carry no parsing or index configuration.
+  if (formData.value.type === 'univer') {
+    return {
+      name: formData.value.name,
+      description: formData.value.description,
+      type: 'univer',
+      indexing_strategy: {
+        vector_enabled: false,
+        keyword_enabled: false,
+        wiki_enabled: false,
+        graph_enabled: false,
+      },
+    }
+  }
 
   const data: any = {
     name: formData.value.name,
@@ -1774,6 +1800,19 @@ const doSubmit = async () => {
 
       // 1. 更新基本信息（名称、描述）和 FAQ/Wiki 配置
       const updateConfig: any = {}
+      // A collaborative knowledge base has no parsing, model or index
+      // configuration; sending the editor's defaults here would silently
+      // re-enable indexing on it.
+      if (formData.value.type === 'univer') {
+        await updateKnowledgeBase(kbId, {
+          name: data.name,
+          description: data.description,
+        })
+        MessagePlugin.success(t('knowledgeEditor.messages.updateSuccess'))
+        emit('success', kbId)
+        await loadKBData(kbId)
+        return
+      }
       if (formData.value.type === 'faq' && formData.value.faqConfig) {
         updateConfig.faq_config = {
           index_mode: formData.value.faqConfig.indexMode || 'question_only',

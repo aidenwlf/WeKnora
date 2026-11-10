@@ -106,6 +106,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Tencent/WeKnora/internal/univer"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 	"github.com/tencent/vectordatabase-sdk-go/tcvectordb"
 	"github.com/weaviate/weaviate-go-client/v5/weaviate"
@@ -401,6 +402,25 @@ func BuildContainer(container *dig.Container) *dig.Container {
 		}
 		cleaner.RegisterWithName("BrowserSkill", func() error { manager.Close(); return nil })
 		return manager, nil
+	}))
+	// Collaborative spreadsheets (Univer Server SDK). The manager is inert
+	// unless UNIVER_ENABLED is set, so an unconfigured deployment keeps the
+	// previous behaviour.
+	must(container.Provide(func(
+		db *gorm.DB, members interfaces.TenantMemberService, cleaner interfaces.ResourceCleaner,
+	) *univer.Manager {
+		manager := univer.NewManager(db, members, univer.OptionsFromEnv())
+		cleaner.RegisterWithName("Univer", func() error { manager.Close(); return nil })
+		return manager
+	}))
+	must(container.Provide(func(manager *univer.Manager) interfaces.UniverService { return manager }))
+	must(container.Provide(handler.NewUniverHandler))
+	must(container.Provide(func(svc interfaces.UniverService) (*handler.UniverProxy, error) {
+		internalURL := strings.TrimSpace(os.Getenv("UNIVER_INTERNAL_URL"))
+		if internalURL == "" {
+			internalURL = univer.DefaultInternalURL
+		}
+		return handler.NewUniverProxy(svc, internalURL)
 	}))
 	// Agent catalog operations dispatch into the router, which is built later
 	// and binds itself to this dispatcher.

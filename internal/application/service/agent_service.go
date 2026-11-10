@@ -122,6 +122,7 @@ type agentService struct {
 	storageResolver       interfaces.StorageBackendResolver
 	toolApprovalGate      approval.MCPApproval
 	customAgentService    interfaces.CustomAgentService
+	univerService         interfaces.UniverService
 	operationDispatcher   operations.Dispatcher
 	collaboration         *AgentCollaboration
 	sandboxMgr            sandbox.Manager
@@ -182,10 +183,12 @@ func NewAgentService(
 	shellJobs *ShellJobService,
 	operationDispatcher *operations.HandlerDispatcher,
 	customAgentService interfaces.CustomAgentService,
+	univerService interfaces.UniverService,
 	collaboration *AgentCollaboration,
 ) interfaces.AgentService {
 	svc := &agentService{
 		customAgentService:   customAgentService,
+		univerService:        univerService,
 		operationDispatcher:  operationDispatcher,
 		browserSkill:         browserSkill,
 		userRepo:             userRepo,
@@ -1271,12 +1274,16 @@ func (s *agentService) registerTools(
 	logger.Infof(ctx, "Using allowed tools: %v (set in config: %v)", allowedTools, config.AllowedTools != nil)
 	if config.SharedAgentReadOnly {
 		allowedTools = withoutWikiWriteTools(allowedTools)
+		// Live spreadsheet edits are writes too: a read-only share must not
+		// become a write path into the owner's workspace.
+		allowedTools = withoutString(allowedTools, tools.ToolUniverUpdateUnit)
 	}
 
 	// ---- Capability detection from SearchTargets ----
 	var hasVectorKB bool
 	var hasGraphKB bool
 	var wikiKBIDs []string
+	var univerKBIDs []string
 	wikiRoutes := tools.NewWikiRouteResolver()
 	for _, target := range config.SearchTargets {
 		if target == nil || target.KnowledgeBaseID == "" {
@@ -1295,8 +1302,16 @@ func (s *agentService) registerTools(
 		if kb.IsWikiEnabled() {
 			wikiKBIDs = append(wikiKBIDs, kb.ID)
 		}
+		if kb.IsUniver() {
+			univerKBIDs = append(univerKBIDs, kb.ID)
+		}
 	}
 	wikiKBIDs = dedupStrings(wikiKBIDs)
+	univerKBIDs = dedupStrings(univerKBIDs)
+	univerReadKBIDs := univerKBIDs
+	// Editing follows the writable KB set, so a viewer share cannot become a
+	// write path into somebody else's collaborative entries.
+	univerWriteKBIDs := intersectStrings(univerKBIDs, config.WritableKBIDs)
 	wikiScopes := tools.NewWikiScopesFromSearchTargets(config.SearchTargets, wikiKBIDs)
 	// Narrow to the KBs that survived scope resolution. Build a fresh slice
 	// rather than truncating in place, so the argument passed above can never
@@ -1494,6 +1509,21 @@ func (s *agentService) registerTools(
 			toolToRegister = tools.NewReadDocumentTool(s.knowledgeService, s.chunkService, config.SearchTargets)
 		case tools.ToolListDocuments:
 			toolToRegister = tools.NewListDocumentsTool(s.knowledgeService, config.SearchTargets)
+		case tools.ToolUniverListUnits:
+			if s.univerService == nil || !s.univerService.Enabled() || len(univerReadKBIDs) == 0 {
+				continue
+			}
+			toolToRegister = tools.NewUniverListUnitsTool(s.univerService, univerReadKBIDs)
+		case tools.ToolUniverReadUnit:
+			if s.univerService == nil || !s.univerService.Enabled() || len(univerReadKBIDs) == 0 {
+				continue
+			}
+			toolToRegister = tools.NewUniverReadUnitTool(s.univerService, univerReadKBIDs)
+		case tools.ToolUniverUpdateUnit:
+			if s.univerService == nil || !s.univerService.Enabled() || len(univerWriteKBIDs) == 0 {
+				continue
+			}
+			toolToRegister = tools.NewUniverUpdateUnitTool(s.univerService, univerWriteKBIDs)
 		case tools.ToolQueryKnowledgeGraph:
 			var chunkRepo interfaces.ChunkRepository
 			if s.chunkService != nil {
@@ -1601,6 +1631,9 @@ var assistantWriteToolRisk = map[string]operations.Risk{
 	tools.ToolWikiFlagIssue:   operations.RiskWrite,
 	tools.ToolWikiUpdateIssue: operations.RiskWrite,
 	tools.ToolWikiDeletePage:  operations.RiskDestructive,
+	// Spreadsheet edits are live and visible to every collaborator, so they
+	// follow the same access level as the other direct write tools.
+	tools.ToolUniverUpdateUnit: operations.RiskWrite,
 }
 
 // withoutWikiWriteTools drops the tools that write Wiki state. They execute

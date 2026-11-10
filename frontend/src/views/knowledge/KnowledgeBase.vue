@@ -56,6 +56,7 @@ import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
 import { useUploadConfirmStore, type UploadConfirmResult } from '@/stores/uploadConfirm';
 import { useUploadTasksStore } from '@/stores/uploadTasks';
 import WikiBrowser from './wiki/WikiBrowser.vue';
+import UniverKBBrowser from '@/views/univer/UniverKBBrowser.vue';
 import ImageGallery from './gallery/ImageGallery.vue';
 import { getWikiStats } from '@/api/wiki';
 import {
@@ -96,6 +97,8 @@ const uploadSourceRef = ref<InstanceType<typeof KbUploadSourceDropdown> | null>(
 const kbLoading = ref(false);
 const docListLoading = ref(true);
 const isFAQ = computed(() => (kbInfo.value?.type || '') === 'faq');
+// Collaborative knowledge bases replace the document surface entirely.
+const isUniver = computed(() => (kbInfo.value?.type || '') === 'univer');
 const isWiki = computed(() => !!kbInfo.value?.indexing_strategy?.wiki_enabled);
 const validTabs = ['documents', 'wiki', 'graph', 'gallery'] as const
 type KbTab = typeof validTabs[number]
@@ -2450,7 +2453,23 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
 </script>
 
 <template>
-  <template v-if="!isFAQ">
+  <div v-if="isUniver" class="knowledge-layout knowledge-layout--univer">
+    <div class="document-header">
+      <div class="document-header-title">
+        <div class="document-title-row">
+          <h2 class="document-breadcrumb">
+            <button type="button" class="breadcrumb-link" @click="handleNavigateToKbList">
+              {{ $t('menu.knowledgeBase') }}
+            </button>
+            <t-icon name="chevron-right" class="breadcrumb-separator" />
+            <span class="breadcrumb-link">{{ kbInfo?.name || '' }}</span>
+          </h2>
+        </div>
+      </div>
+    </div>
+    <UniverKBBrowser :knowledge-base-id="kbId" />
+  </div>
+  <template v-else-if="!isFAQ">
     <div class="knowledge-layout">
       <div class="document-header">
         <div class="document-header-title">

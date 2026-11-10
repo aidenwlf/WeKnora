@@ -3265,6 +3265,7 @@ export default {
       adjustRetrieval: '调整检索参数'
     },
     quick: {
+      sheets: '打开协同表格',
       newChat: '新建对话',
       knowledgeBases: '打开知识库',
       agents: '打开智能体',
@@ -6052,6 +6053,7 @@ export default {
       typeLabel: '知识库类型',
       typeDocument: '文档',
       typeFAQ: '问答',
+    typeUniver: '协同',
       typeDescription: 'FAQ 类型适合结构化问答数据；文档型支持文件解析与分块；Wiki 类型由 LLM 自动构建互链知识页面。',
       nameLabel: '知识库名称',
       namePlaceholder: '请输入知识库名称',
@@ -9505,5 +9507,24 @@ export default {
       },
       description: '先观察图片特征并进行图片描述，再根据图片特征决定是否调用OCR对图片进行识别，以节省模型调用次数并提升解析速度。当识别到图片为可校正的文档或标签页照片时，会在识别前自动摆正并裁剪页面，以提升 OCR 准确率；若校正失败则直接使用原图。'
     }
-  }
+  },
+  univer: {
+    kindSheet: '表格',
+    kindDoc: '文档',
+    kindBase: '多维表格',
+    kindSlide: '幻灯片',
+    title: '协同条目',
+    subtitle: '表格、文档、多维表格和幻灯片都在这里，支持多人实时编辑，智能体也可以直接读写。',
+    create: '新建条目',
+    namePlaceholder: '条目名称',
+    empty: '还没有协同条目',
+    emptyHint: '新建表格、文档、多维表格或幻灯片，智能体和协作者都能直接编辑。',
+    open: '打开',
+    delete: '删除',
+    deleteConfirm: '删除后条目会从列表移除，确定继续？',
+    loading: '正在加载条目…',
+    disabled: '当前部署未启用协同知识库',
+    created: '已创建',
+    loadFailed: '条目加载失败'
+  },
 }

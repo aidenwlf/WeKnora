@@ -174,6 +174,9 @@ func AvailableToolDefinitions() []AvailableTool {
 		{Name: ToolWikiUpdateIssue, Label: "更新Wiki问题状态", Description: "更新特定的Wiki页面问题状态", Group: ToolGroupWikiIssue},
 		{Name: ToolDataAnalysis, Label: "数据分析", Description: "理解数据文件并进行数据分析", Group: ToolGroupData},
 		{Name: ToolDataSchema, Label: "查看数据元信息", Description: "获取表格文件的元信息", Group: ToolGroupData},
+		{Name: ToolUniverListUnits, Label: "协同条目", Description: "列出协同知识库里的表格、文档、多维表格和幻灯片", Group: ToolGroupData},
+		{Name: ToolUniverReadUnit, Label: "读取协同条目", Description: "读取协同条目内容（表格按区域返回，文档返回正文）", Group: ToolGroupData},
+		{Name: ToolUniverUpdateUnit, Label: "更新协同条目", Description: "修改协同条目，改动即时同步给所有协作者", Group: ToolGroupData, Danger: true},
 	}
 }
 
@@ -214,6 +217,12 @@ func DefaultAllowedTools() []string {
 		// own history, and it is what lets "上次你给我的那个配置" resolve at all
 		// without stuffing every past conversation into the context window.
 		ToolSearchConversations,
+		// Live spreadsheets are ordinary collaborative knowledge: reading and
+		// editing them is the point of the surface, and they are workspace
+		// scoped like any other resource.
+		ToolUniverListUnits,
+		ToolUniverReadUnit,
+		ToolUniverUpdateUnit,
 		// Asking the user only reaches someone on clients that render the
 		// card; elsewhere the tool tells the model to ask in its reply.
 		ToolAskUser,

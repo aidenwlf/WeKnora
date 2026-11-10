@@ -3870,6 +3870,7 @@ export default {
       typeLabel: 'ナレッジベースの種類',
       typeDocument: 'ドキュメント型',
       typeFAQ: 'FAQ型',
+    typeUniver: 'コラボ',
       typeDescription: 'FAQ型は構造化されたQ&Aデータに適しています。ドキュメント型はファイルの解析とチャンク分割に対応します。Wiki型はLLMで相互リンクされたナレッジページを自動構築します。',
       nameLabel: 'ナレッジベース名',
       namePlaceholder: 'ナレッジベース名を入力してください',
@@ -7160,6 +7161,7 @@ export default {
       keyword: 'キーワード'
     },
     quick: {
+      sheets: '共同編集シートを開く',
       newChat: '新しい会話',
       knowledgeBases: 'ナレッジベースを開く',
       agents: 'エージェントを開く',
@@ -9506,5 +9508,24 @@ export default {
       description:
         'まず画像の特徴を観察して説明を生成し、その特徴に基づいて OCR を実行するかどうかを判断します。モデル呼び出しを節約し、解析速度を向上させます 画像が補正可能な書類やラベルの写真と判定された場合、認識前にページを傾き補正・トリミングして OCR 精度を高めます。補正に失敗した場合は元の画像を使用します。'
     }
-  }
+  },
+  univer: {
+    kindSheet: 'シート',
+    kindDoc: 'ドキュメント',
+    kindBase: '多次元テーブル',
+    kindSlide: 'スライド',
+    title: '共同編集項目',
+    subtitle: 'シート、ドキュメント、多次元テーブル、スライドをここで管理し、リアルタイムに共同編集できます。エージェントも直接読み書きできます。',
+    create: '項目を作成',
+    namePlaceholder: '項目名',
+    empty: '共同編集項目はまだありません',
+    emptyHint: 'シート、ドキュメント、多次元テーブル、スライドを作成すると、エージェントも共同編集者も直接編集できます。',
+    open: '開く',
+    delete: '削除',
+    deleteConfirm: '一覧から削除されます。続行しますか？',
+    loading: '項目を読み込み中…',
+    disabled: 'このデプロイでは共同編集ナレッジベースが有効になっていません',
+    created: '作成しました',
+    loadFailed: '項目を読み込めませんでした'
+  },
 }

@@ -3870,6 +3870,7 @@ export default {
       typeLabel: 'Knowledge Base Type',
       typeDocument: 'Document-based',
       typeFAQ: 'FAQ Q&A',
+    typeUniver: 'Collaborative',
       typeDescription: 'FAQ suits structured Q&A datasets; document type supports file parsing and chunking; Wiki type auto-builds interlinked knowledge pages via LLM.',
       nameLabel: 'Knowledge Base Name',
       namePlaceholder: 'Enter knowledge base name',
@@ -7160,6 +7161,7 @@ export default {
       keyword: 'Keyword'
     },
     quick: {
+      sheets: 'Open spreadsheets',
       newChat: 'New conversation',
       knowledgeBases: 'Open knowledge bases',
       agents: 'Open agents',
@@ -9512,5 +9514,24 @@ export default {
       description:
         'Observe the image attributes and describe the image first, then decide from the attributes whether to run OCR, saving model calls and speeding up parsing. When the image is recognised as a photograph of a correctable page or label, it is straightened and cropped before recognition to improve OCR accuracy; if that fails, the original image is used.'
     }
-  }
+  },
+  univer: {
+    kindSheet: 'Spreadsheet',
+    kindDoc: 'Document',
+    kindBase: 'Multi-dimensional table',
+    kindSlide: 'Slides',
+    title: 'Collaborative entries',
+    subtitle: 'Spreadsheets, documents, multi-dimensional tables and slide decks live here, edited together in real time and readable by the agent.',
+    create: 'New entry',
+    namePlaceholder: 'Entry name',
+    empty: 'No entries yet',
+    emptyHint: 'Create a spreadsheet, document, multi-dimensional table or slide deck; the agent and your teammates can edit it directly.',
+    open: 'Open',
+    delete: 'Delete',
+    deleteConfirm: 'The entry is removed from this list. Continue?',
+    loading: 'Loading entry…',
+    disabled: 'Collaborative knowledge bases are not enabled on this deployment',
+    created: 'Created',
+    loadFailed: 'Could not load the entry'
+  },
 }

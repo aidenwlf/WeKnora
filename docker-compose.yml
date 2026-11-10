@@ -155,6 +155,12 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-}
       - DB_NAME=${DB_NAME:-}
       - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-}
+      # ========== Collaborative spreadsheets (Univer) ==========
+      - UNIVER_ENABLED=${UNIVER_ENABLED:-}
+      - UNIVER_INTERNAL_URL=http://univer:3010
+      - UNIVER_SHARED_SECRET=${UNIVER_SHARED_SECRET:-}
+      # The app does not own the process in containers.
+      - UNIVER_MANAGED=false
       # SQLite 驱动时使用（DB_DRIVER=sqlite）；postgres 驱动忽略
       # - DB_PATH=${DB_PATH:-}
       # ========== Langfuse (optional observability) ==========
@@ -421,6 +427,37 @@ services:
 
   # Sandbox 镜像：仅用于 build/pull，非常驻。Docker 沙箱默认关闭，需
   # WEKNORA_SANDBOX_DOCKER_ENABLED=true 并挂载 docker.sock 后，app 才会按会话创建容器。
+  # Collaborative spreadsheets (Univer Server SDK).
+  #
+  # Optional: leave UNIVER_ENABLED unset to keep the surface off. When on, the
+  # app reaches this service internally (UNIVER_MANAGED=false) and proxies the
+  # browser's collaboration traffic through /api/v1/univer/universer-api.
+  univer:
+    build:
+      context: ./server/univer-collab
+    image: wechatopenai/weknora-univer:${WEKNORA_VERSION:-latest}
+    container_name: WeKnora-univer
+    restart: unless-stopped
+    environment:
+      - UNIVER_HOST=0.0.0.0
+      - UNIVER_PORT=3010
+      - UNIVER_DB=postgres
+      # Discrete PG* variables rather than a DSN: DB_PASSWORD may contain
+      # characters that need URL encoding.
+      - PGHOST=${DB_HOST:-postgres}
+      - PGPORT=${DB_PORT:-5432}
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+      - PGDATABASE=${DB_NAME}
+      - UNIVER_SHARED_SECRET=${UNIVER_SHARED_SECRET}
+      # ACL checks go back to the app.
+      - WEKNORA_INTERNAL_URL=http://app:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - WeKnora-network
+
   sandbox:
     image: wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}
     container_name: WeKnora-sandbox

@@ -3265,6 +3265,7 @@ export default {
       adjustRetrieval: '調整檢索參數'
     },
     quick: {
+      sheets: '開啟協同表格',
       newChat: '新建對話',
       knowledgeBases: '打開知識庫',
       agents: '打開智慧代理',
@@ -6052,6 +6053,7 @@ export default {
       typeLabel: '知識庫類型',
       typeDocument: '文件',
       typeFAQ: '問答',
+    typeUniver: '協同',
       typeDescription: 'FAQ 類型適合結構化問答資料；文件型支持檔案解析與切塊；Wiki 類型由 LLM 自動建構互鏈知識頁面。',
       nameLabel: '知識庫名稱',
       namePlaceholder: '請輸入知識庫名稱',
@@ -9502,5 +9504,24 @@ export default {
       },
       description: '先觀察圖片特徵並進行圖片描述，再根據圖片特徵決定是否呼叫 OCR 對圖片進行辨識，以節省模型呼叫次數並提升解析速度。當辨識到圖片為可校正的文件或標籤頁照片時，會在辨識前自動擺正並裁切頁面，以提升 OCR 準確率；若校正失敗則直接使用原圖。',
     },
+  },
+  univer: {
+    kindSheet: '表格',
+    kindDoc: '文件',
+    kindBase: '多維表格',
+    kindSlide: '簡報',
+    title: '協同條目',
+    subtitle: '表格、文件、多維表格和簡報都在這裡，支援多人即時編輯，智慧代理也可以直接讀寫。',
+    create: '新增條目',
+    namePlaceholder: '條目名稱',
+    empty: '還沒有協同條目',
+    emptyHint: '新增表格、文件、多維表格或簡報，智慧代理和協作者都能直接編輯。',
+    open: '開啟',
+    delete: '刪除',
+    deleteConfirm: '刪除後條目會從清單移除，確定繼續？',
+    loading: '正在載入條目…',
+    disabled: '目前部署未啟用協同知識庫',
+    created: '已建立',
+    loadFailed: '條目載入失敗'
   },
 }

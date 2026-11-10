@@ -216,7 +216,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="kb.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(kb.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (kb.type || 'document') === 'document', 'type-faq': kb.type === 'faq' }">
@@ -295,7 +295,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="kb.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(kb.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (kb.type || 'document') === 'document', 'type-faq': kb.type === 'faq' }">
@@ -447,7 +447,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="kb.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(kb.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (kb.type || 'document') === 'document', 'type-faq': kb.type === 'faq' }">
@@ -575,7 +575,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="shared.knowledge_base.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(shared.knowledge_base.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (shared.knowledge_base.type || 'document') === 'document', 'type-faq': shared.knowledge_base.type === 'faq' }">
@@ -711,6 +711,10 @@
 </template>
 
 <script setup lang="ts">
+const kbTypeLabel = (type?: string) =>
+  type === 'faq' ? 'knowledgeEditor.basic.typeFAQ'
+    : type === 'univer' ? 'knowledgeEditor.basic.typeUniver'
+      : 'knowledgeEditor.basic.typeDocument'
 import { useAssistantDataChange } from '@/utils/assistantDataChange'
 import { onMounted, onUnmounted, ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'

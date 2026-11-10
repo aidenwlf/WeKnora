@@ -3263,6 +3263,7 @@ export default {
       adjustRetrieval: '검색 설정 조정'
     },
     quick: {
+      sheets: '협업 스프레드시트 열기',
       newChat: '새 대화',
       knowledgeBases: '지식베이스 열기',
       agents: '에이전트 열기',
@@ -3314,7 +3315,7 @@ export default {
       agents: '에이전트 {count}',
     },
     title: '공유 공간',
-    subtitle: '공유 공간를 만들거나 참여하여 여러 스페이스가 함께 협업하고 지식베이스와 에이전트를 공유하세요.',
+    subtitle: '모든 대화에서 에이전트가 생성한 파일을 한곳에 모아 보여줍니다',
     createOrg: '공유 공간 생성',
     joinOrg: '공유 공간에 참여하기',
     name: '공유 공간 이름',
@@ -6051,6 +6052,7 @@ export default {
       typeLabel: '지식베이스 유형',
       typeDocument: '문서',
       typeFAQ: 'Q&A',
+    typeUniver: '협업',
       typeDescription: 'FAQ 유형은 구조화된 Q&A 데이터에 적합합니다. 문서 유형은 파일 파싱과 청킹을 지원합니다. Wiki 유형은 LLM을 통해 상호 연결된 지식 페이지를 자동으로 구축합니다.',
       nameLabel: '지식베이스 이름',
       namePlaceholder: '지식베이스 이름을 입력해주세요',
@@ -9506,5 +9508,24 @@ export default {
       description:
         '먼저 이미지 특징을 관찰하여 설명을 생성하고, 그 특징을 바탕으로 OCR 실행 여부를 결정합니다. 모델 호출을 절약하고 분석 속도를 높입니다 이미지가 보정 가능한 문서나 라벨 사진으로 인식되면 인식 전에 페이지를 자동으로 정렬하고 잘라내어 OCR 정확도를 높입니다. 보정에 실패하면 원본 이미지를 사용합니다.'
     }
-  }
+  },
+  univer: {
+    kindSheet: '스프레드시트',
+    kindDoc: '문서',
+    kindBase: '다차원 표',
+    kindSlide: '슬라이드',
+    title: '협업 항목',
+    subtitle: '스프레드시트, 문서, 다차원 표, 슬라이드를 여기서 함께 실시간으로 편집하며 에이전트도 직접 읽고 쓸 수 있습니다.',
+    create: '항목 만들기',
+    namePlaceholder: '항목 이름',
+    empty: '아직 협업 항목이 없습니다',
+    emptyHint: '스프레드시트, 문서, 다차원 표, 슬라이드를 만들면 에이전트와 동료가 직접 편집할 수 있습니다.',
+    open: '열기',
+    delete: '삭제',
+    deleteConfirm: '목록에서 제거됩니다. 계속할까요?',
+    loading: '항목을 불러오는 중…',
+    disabled: '이 배포에서는 협업 지식 베이스가 활성화되어 있지 않습니다',
+    created: '만들었습니다',
+    loadFailed: '항목을 불러오지 못했습니다'
+  },
 }

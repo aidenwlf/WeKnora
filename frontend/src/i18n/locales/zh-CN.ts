@@ -3287,6 +3287,7 @@ export default {
       adjustRetrieval: '调整检索参数'
     },
     quick: {
+      sheets: '打开协同表格',
       newChat: '新建对话',
       knowledgeBases: '打开知识库',
       agents: '打开智能体',
@@ -5909,11 +5910,14 @@ export default {
         // Display names for the builtin attributes the gallery itself
         // declares. Attributes contributed by other sources fall back to the
         // pipeline's own wording (see the imageAttr namespace).
+        sourcePage: '第 {page} 页',
         attr: {
           builtin_caption: '描述',
           builtin_caption_description: '模型生成的图片描述',
           builtin_ocr_text: 'OCR 文本',
           builtin_ocr_text_description: 'OCR 从图片中提取的文字',
+          builtin_page: '文档页码',
+          builtin_page_description: '按来源文档分组，再按 PDF 页码排序；未知页码放在文档末尾。',
           builtin_created_at: '创建时间',
           builtin_created_at_description: '所属文档片段的创建时间',
           builtin_updated_at: '更新时间',
@@ -6093,6 +6097,7 @@ export default {
       typeLabel: '知识库类型',
       typeDocument: '文档',
       typeFAQ: '问答',
+    typeUniver: '协同',
       typeDescription: 'FAQ 类型适合结构化问答数据；文档型支持文件解析与分块；Wiki 类型由 LLM 自动构建互链知识页面。',
       nameLabel: '知识库名称',
       namePlaceholder: '请输入知识库名称',
@@ -7325,9 +7330,16 @@ export default {
     statsIndexedMessages: '已索引消息',
     statsNotConfigured: '消息索引未配置',
     statsNotConfiguredDesc: '启用并选择 Embedding 模型后，对话消息将自动向量化索引',
+    clearIndexLabel: '清空消息索引',
+    clearIndexDescription: '暂停消息索引，并清空当前空间的消息检索索引。原始会话和消息会保留。',
+    clearIndexButton: '清空索引',
+    clearIndexConfirm: '确定清空当前空间所有成员的消息索引吗？消息索引将暂停，原始会话和消息不会删除，历史消息也不会自动重新索引。此操作不可撤销。',
     toasts: {
       saveSuccess: '消息管理配置已保存',
-      saveFailed: '保存配置失败: {message}'
+      saveFailed: '保存配置失败: {message}',
+      loadFailed: '无法加载消息索引配置或统计信息',
+      clearSuccess: '消息索引已清空，索引已暂停，可在准备好后重新启用。',
+      clearFailed: '索引清理未完成，请检查当前状态后重试：{message}'
     }
   },
   vectorStoreSettings: {
@@ -9568,5 +9580,24 @@ export default {
       },
       description: '先观察图片特征并进行图片描述，再根据图片特征决定是否调用OCR对图片进行识别，以节省模型调用次数并提升解析速度。当识别到图片为可校正的文档或标签页照片时，会在识别前自动摆正并裁剪页面，以提升 OCR 准确率；若校正失败则直接使用原图。'
     }
-  }
+  },
+  univer: {
+    kindSheet: '表格',
+    kindDoc: '文档',
+    kindBase: '多维表格',
+    kindSlide: '幻灯片',
+    title: '协同条目',
+    subtitle: '表格、文档、多维表格和幻灯片都在这里，支持多人实时编辑，智能体也可以直接读写。',
+    create: '新建条目',
+    namePlaceholder: '条目名称',
+    empty: '还没有协同条目',
+    emptyHint: '新建表格、文档、多维表格或幻灯片，智能体和协作者都能直接编辑。',
+    open: '打开',
+    delete: '删除',
+    deleteConfirm: '删除后条目会从列表移除，确定继续？',
+    loading: '正在加载条目…',
+    disabled: '当前部署未启用协同知识库',
+    created: '已创建',
+    loadFailed: '条目加载失败'
+  },
 }

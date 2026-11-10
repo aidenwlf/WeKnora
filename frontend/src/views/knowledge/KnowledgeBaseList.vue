@@ -216,7 +216,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="kb.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(kb.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (kb.type || 'document') === 'document', 'type-faq': kb.type === 'faq' }">
@@ -295,7 +295,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="kb.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(kb.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (kb.type || 'document') === 'document', 'type-faq': kb.type === 'faq' }">
@@ -447,7 +447,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="kb.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(kb.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (kb.type || 'document') === 'document', 'type-faq': kb.type === 'faq' }">
@@ -575,7 +575,7 @@
                 <div class="bottom-left">
                   <div class="feature-badges">
                     <t-tooltip
-                      :content="shared.knowledge_base.type === 'faq' ? $t('knowledgeEditor.basic.typeFAQ') : $t('knowledgeEditor.basic.typeDocument')"
+                      :content="$t(kbTypeLabel(shared.knowledge_base.type))"
                       placement="top">
                       <div class="feature-badge is-count"
                         :class="{ 'type-document': (shared.knowledge_base.type || 'document') === 'document', 'type-faq': shared.knowledge_base.type === 'faq' }">
@@ -711,6 +711,10 @@
 </template>
 
 <script setup lang="ts">
+const kbTypeLabel = (type?: string) =>
+  type === 'faq' ? 'knowledgeEditor.basic.typeFAQ'
+    : type === 'univer' ? 'knowledgeEditor.basic.typeUniver'
+      : 'knowledgeEditor.basic.typeDocument'
 import { useAssistantDataChange } from '@/utils/assistantDataChange'
 import { onMounted, onUnmounted, ref, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -774,14 +778,11 @@ const { scope: spaceSelection, creator: creatorFilter, query: keyword } = useLis
 })
 
 // Per-user favorites + recents (localStorage-backed). isFavorite & touchRecent
-// are wired into card render and click handlers below.
+// are wired into card render and click handlers below. The tab counts live
+// next to the resolved lists below so they count the same entries the lists
+// render — raw pin entries survive a deleted KB or a revoked share and would
+// inflate the count above a shorter list (Tencent/WeKnora#5278).
 const pins = useResourcePins()
-const kbFavoritesCount = computed(
-  () => pins.favorites.value.filter((e) => e.type === 'kb').length
-)
-const kbRecentsCount = computed(
-  () => pins.recents.value.filter((e) => e.type === 'kb').length
-)
 
 interface KB {
   id: string;
@@ -972,6 +973,13 @@ const recentsList = computed(() => {
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
 })
+
+// Tab counts are the lengths of the resolved lists above, not the raw pin
+// entries: a pin whose KB was deleted (or whose share was revoked) stays in
+// storage until its next mutation, and counting it directly showed e.g.
+// 「最近 4」 above a list of 1 (Tencent/WeKnora#5278).
+const kbFavoritesCount = computed(() => favoritesList.value.length)
+const kbRecentsCount = computed(() => recentsList.value.length)
 
 // 可编辑权限：editor / admin。viewer 进入「仅查看」组。
 // 用 share-level permission（不是空间角色）做判断——跨空间拿到 viewer 的，

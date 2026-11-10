@@ -214,7 +214,7 @@
           <div class="skill-approval-card__actions">
             <t-input :value="rejectReasonByID[req.id] || ''" size="small" clearable
               :placeholder="$t('settings.skills.approvalsReasonPlaceholder')"
-              @change="(value) => setRejectReason(req.id, value)" />
+              @change="(value: string) => setRejectReason(req.id, value)" />
             <t-button size="small" theme="primary" :loading="approvalBusyId === req.id" :disabled="approvalBusyId === req.id"
               @click="approveApproval(req)">
               {{ $t('settings.skills.approvalsApprove') }}

@@ -136,6 +136,11 @@ func (s *knowledgeBaseService) GetRepository() interfaces.KnowledgeBaseRepositor
 func (s *knowledgeBaseService) CreateKnowledgeBase(ctx context.Context,
 	kb *types.KnowledgeBase,
 ) (*types.KnowledgeBase, error) {
+	// A collaborative knowledge base never parses or indexes; force the
+	// pipeline off so a later edit cannot quietly turn it back on.
+	if kb.Type == types.KnowledgeBaseTypeUniver {
+		types.ForceCollaborativeKnowledgeBase(kb)
+	}
 	// Generate UUID and set creation timestamps
 	if kb.ID == "" {
 		kb.ID = uuid.New().String()

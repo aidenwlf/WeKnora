@@ -3287,6 +3287,7 @@ export default {
       adjustRetrieval: '調整檢索參數'
     },
     quick: {
+      sheets: '開啟協同表格',
       newChat: '新建對話',
       knowledgeBases: '打開知識庫',
       agents: '打開智慧代理',
@@ -5909,11 +5910,14 @@ export default {
         // Display names for the builtin attributes the gallery itself
         // declares. Attributes contributed by other sources fall back to the
         // pipeline's own wording (see the imageAttr namespace).
+        sourcePage: '第 {page} 頁',
         attr: {
           builtin_caption: '描述',
           builtin_caption_description: '模型生成的圖片描述',
           builtin_ocr_text: 'OCR 文字',
           builtin_ocr_text_description: 'OCR 從圖片中提取的文字',
+          builtin_page: '文件頁碼',
+          builtin_page_description: '依來源文件分組，再依 PDF 頁碼排序；未知頁碼放在文件末尾。',
           builtin_created_at: '建立時間',
           builtin_created_at_description: '所屬文件片段的建立時間',
           builtin_updated_at: '更新時間',
@@ -6093,6 +6097,7 @@ export default {
       typeLabel: '知識庫類型',
       typeDocument: '文件',
       typeFAQ: '問答',
+    typeUniver: '協同',
       typeDescription: 'FAQ 類型適合結構化問答資料；文件型支持檔案解析與切塊；Wiki 類型由 LLM 自動建構互鏈知識頁面。',
       nameLabel: '知識庫名稱',
       namePlaceholder: '請輸入知識庫名稱',
@@ -7325,9 +7330,16 @@ export default {
     statsIndexedMessages: '已索引訊息',
     statsNotConfigured: '訊息索引未設定',
     statsNotConfiguredDesc: '啟用並選擇 Embedding 模型後，對話訊息將自動向量化索引',
+    clearIndexLabel: '清空訊息索引',
+    clearIndexDescription: '暫停訊息索引，並清空目前空間的訊息搜尋索引。原始對話和訊息會保留。',
+    clearIndexButton: '清空索引',
+    clearIndexConfirm: '確定清空目前空間所有成員的訊息索引嗎？訊息索引將暫停，原始對話和訊息不會刪除，歷史訊息也不會自動重新索引。此操作無法復原。',
     toasts: {
       saveSuccess: '訊息管理設定已儲存',
-      saveFailed: '儲存設定失敗: {message}'
+      saveFailed: '儲存設定失敗: {message}',
+      loadFailed: '無法載入訊息索引設定或統計資訊',
+      clearSuccess: '訊息索引已清空，索引已暫停，可在準備好後重新啟用。',
+      clearFailed: '索引清理未完成，請檢查目前狀態後重試：{message}'
     }
   },
   vectorStoreSettings: {
@@ -9565,5 +9577,24 @@ export default {
       },
       description: '先觀察圖片特徵並進行圖片描述，再根據圖片特徵決定是否呼叫 OCR 對圖片進行辨識，以節省模型呼叫次數並提升解析速度。當辨識到圖片為可校正的文件或標籤頁照片時，會在辨識前自動擺正並裁切頁面，以提升 OCR 準確率；若校正失敗則直接使用原圖。',
     },
+  },
+  univer: {
+    kindSheet: '表格',
+    kindDoc: '文件',
+    kindBase: '多維表格',
+    kindSlide: '簡報',
+    title: '協同條目',
+    subtitle: '表格、文件、多維表格和簡報都在這裡，支援多人即時編輯，智慧代理也可以直接讀寫。',
+    create: '新增條目',
+    namePlaceholder: '條目名稱',
+    empty: '還沒有協同條目',
+    emptyHint: '新增表格、文件、多維表格或簡報，智慧代理和協作者都能直接編輯。',
+    open: '開啟',
+    delete: '刪除',
+    deleteConfirm: '刪除後條目會從清單移除，確定繼續？',
+    loading: '正在載入條目…',
+    disabled: '目前部署未啟用協同知識庫',
+    created: '已建立',
+    loadFailed: '條目載入失敗'
   },
 }

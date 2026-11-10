@@ -3005,9 +3005,16 @@ export default {
     statsIndexedMessages: 'インデックス済みメッセージ',
     statsNotConfigured: 'メッセージのインデックス作成が未設定です',
     statsNotConfiguredDesc: '有効化して埋め込みモデルを選択すると、会話メッセージの自動インデックス作成が始まります',
+    clearIndexLabel: 'メッセージインデックスを消去',
+    clearIndexDescription: 'インデックス作成を一時停止し、このワークスペースのメッセージ検索インデックスを消去します。会話とメッセージは保持されます。',
+    clearIndexButton: 'インデックスを消去',
+    clearIndexConfirm: 'このワークスペースの全メンバーのメッセージインデックスを消去しますか？インデックス作成は一時停止します。会話とメッセージは削除されず、過去のメッセージは自動で再インデックス化されません。この操作は取り消せません。',
     toasts: {
       saveSuccess: 'メッセージ管理の設定を保存しました',
-      saveFailed: '設定の保存に失敗しました: {message}'
+      saveFailed: '設定の保存に失敗しました: {message}',
+      loadFailed: 'メッセージインデックスの設定または統計を読み込めません',
+      clearSuccess: 'メッセージインデックスを消去しました。再び有効にするまでインデックス作成は一時停止します。',
+      clearFailed: 'インデックスの消去が完了しませんでした。現在の状態を確認して再試行してください: {message}'
     }
   },
   retrievalSettings: {
@@ -3893,6 +3900,7 @@ export default {
       typeLabel: 'ナレッジベースの種類',
       typeDocument: 'ドキュメント型',
       typeFAQ: 'FAQ型',
+    typeUniver: 'コラボ',
       typeDescription: 'FAQ型は構造化されたQ&Aデータに適しています。ドキュメント型はファイルの解析とチャンク分割に対応します。Wiki型はLLMで相互リンクされたナレッジページを自動構築します。',
       nameLabel: 'ナレッジベース名',
       namePlaceholder: 'ナレッジベース名を入力してください',
@@ -4087,11 +4095,14 @@ export default {
         // Display names for the builtin attributes the gallery itself
         // declares. Attributes contributed by other sources fall back to the
         // pipeline's own wording (see the imageAttr namespace).
+        sourcePage: '{page} ページ',
         attr: {
           builtin_caption: '説明',
           builtin_caption_description: 'モデルが生成した画像の説明',
           builtin_ocr_text: 'OCR テキスト',
           builtin_ocr_text_description: 'OCR で画像から抽出した文字',
+          builtin_page: '文書のページ',
+          builtin_page_description: '元の文書ごとに PDF のページ順で表示します。ページ不明の画像は各文書の末尾に表示します。',
           builtin_created_at: '作成日時',
           builtin_created_at_description: '所属ドキュメントチャンクの作成日時',
           builtin_updated_at: '更新日時',
@@ -7202,6 +7213,7 @@ export default {
       keyword: 'キーワード'
     },
     quick: {
+      sheets: '共同編集シートを開く',
       newChat: '新しい会話',
       knowledgeBases: 'ナレッジベースを開く',
       agents: 'エージェントを開く',
@@ -9569,5 +9581,24 @@ export default {
       description:
         'まず画像の特徴を観察して説明を生成し、その特徴に基づいて OCR を実行するかどうかを判断します。モデル呼び出しを節約し、解析速度を向上させます 画像が補正可能な書類やラベルの写真と判定された場合、認識前にページを傾き補正・トリミングして OCR 精度を高めます。補正に失敗した場合は元の画像を使用します。'
     }
-  }
+  },
+  univer: {
+    kindSheet: 'シート',
+    kindDoc: 'ドキュメント',
+    kindBase: '多次元テーブル',
+    kindSlide: 'スライド',
+    title: '共同編集項目',
+    subtitle: 'シート、ドキュメント、多次元テーブル、スライドをここで管理し、リアルタイムに共同編集できます。エージェントも直接読み書きできます。',
+    create: '項目を作成',
+    namePlaceholder: '項目名',
+    empty: '共同編集項目はまだありません',
+    emptyHint: 'シート、ドキュメント、多次元テーブル、スライドを作成すると、エージェントも共同編集者も直接編集できます。',
+    open: '開く',
+    delete: '削除',
+    deleteConfirm: '一覧から削除されます。続行しますか？',
+    loading: '項目を読み込み中…',
+    disabled: 'このデプロイでは共同編集ナレッジベースが有効になっていません',
+    created: '作成しました',
+    loadFailed: '項目を読み込めませんでした'
+  },
 }

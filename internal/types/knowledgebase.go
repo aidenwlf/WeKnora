@@ -33,6 +33,10 @@ const (
 	KnowledgeBaseTypeDocument = "document"
 	KnowledgeBaseTypeFAQ      = "faq"
 	KnowledgeBaseTypeWiki     = "wiki"
+	// KnowledgeBaseTypeUniver holds live, collaboratively edited entries
+	// (spreadsheet, document, multi-dimensional table, slide deck) instead of
+	// parsed files.
+	KnowledgeBaseTypeUniver = "univer"
 )
 
 // FAQIndexMode represents the FAQ index mode: only index questions or index questions and answers
@@ -949,6 +953,12 @@ func (kb *KnowledgeBase) Capabilities() KBCapabilities {
 	if kb == nil {
 		return KBCapabilities{}
 	}
+	// A collaborative knowledge base has no chunks, so it never answers
+	// retrieval: reporting capabilities here would advertise RAG tools that
+	// can only come back empty.
+	if kb.IsUniver() {
+		return KBCapabilities{}
+	}
 	return KBCapabilities{
 		Vector:  kb.IsVectorEnabled(),
 		Keyword: kb.IsKeywordEnabled(),
@@ -1000,6 +1010,26 @@ func (kb *KnowledgeBase) IsWikiAutoGenerateEnabled() bool {
 }
 
 // IsVectorEnabled checks if vector (semantic) search is enabled.
+// ForceCollaborativeKnowledgeBase strips the parsing and indexing surface a
+// knowledge base of type "univer" must not carry.
+func ForceCollaborativeKnowledgeBase(kb *KnowledgeBase) {
+	if kb == nil {
+		return
+	}
+	kb.IndexingStrategy = IndexingStrategy{}
+	kb.EmbeddingModelID = ""
+	kb.ChunkingConfig = ChunkingConfig{}
+	kb.ExtractConfig = nil
+	kb.FAQConfig = nil
+	kb.ProfileConfig = nil
+	kb.AutoTagConfig = nil
+}
+
+// IsUniver reports whether this knowledge base holds live collaborative units.
+func (kb *KnowledgeBase) IsUniver() bool {
+	return kb != nil && kb.Type == KnowledgeBaseTypeUniver
+}
+
 func (kb *KnowledgeBase) IsVectorEnabled() bool {
 	return kb != nil && kb.IndexingStrategy.VectorEnabled
 }

@@ -184,6 +184,9 @@ func AvailableToolDefinitions() []AvailableTool {
 			Description: "用生图模型根据文字描述生成图片，或参考用户上传、对话中已生成的图片进行修改与合成",
 			Group:       ToolGroupImage,
 		},
+		{Name: ToolUniverListUnits, Label: "协同条目", Description: "列出协同知识库里的表格、文档、多维表格和幻灯片", Group: ToolGroupData},
+		{Name: ToolUniverReadUnit, Label: "读取协同条目", Description: "读取协同条目内容（表格按区域返回，文档返回正文）", Group: ToolGroupData},
+		{Name: ToolUniverUpdateUnit, Label: "更新协同条目", Description: "修改协同条目，改动即时同步给所有协作者", Group: ToolGroupData, Danger: true},
 	}
 }
 
@@ -224,6 +227,12 @@ func DefaultAllowedTools() []string {
 		// own history, and it is what lets "上次你给我的那个配置" resolve at all
 		// without stuffing every past conversation into the context window.
 		ToolSearchConversations,
+		// Live spreadsheets are ordinary collaborative knowledge: reading and
+		// editing them is the point of the surface, and they are workspace
+		// scoped like any other resource.
+		ToolUniverListUnits,
+		ToolUniverReadUnit,
+		ToolUniverUpdateUnit,
 		// Asking the user only reaches someone on clients that render the
 		// card; elsewhere the tool tells the model to ask in its reply.
 		ToolAskUser,

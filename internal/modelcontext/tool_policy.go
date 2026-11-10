@@ -70,6 +70,12 @@ var toolHandlePolicies = map[string]toolHandlePolicy{
 	"discover_mcp_tools": {opaqueOutput: true, mcpRoutingKey: "server_id", mcpDirectoryOutput: true},
 	"call_mcp_tool":      {opaqueOutput: true, mcpRoutingKey: "tool_ref"},
 	"read_file":          {},
+	// Spreadsheet tools address sheets by the workspace's own sheet id, unit
+	// id or name; none of those are runtime resource handles, so their fields
+	// stay opaque.
+	"univer_list_units":  {},
+	"univer_read_unit":   {},
+	"univer_update_unit": {},
 	"search_knowledge": {
 		sourceIDKeys: map[string]struct{}{"knowledge_base_ids": {}},
 		sourceOutput: true,

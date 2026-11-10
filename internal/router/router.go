@@ -55,6 +55,8 @@ type RouterParams struct {
 	AuditLogHandler              *handler.AuditLogHandler
 	AuditLogService              interfaces.AuditLogService
 	ChunkHandler                 *handler.ChunkHandler
+	UniverHandler                *handler.UniverHandler
+	UniverProxy                  *handler.UniverProxy
 	SessionHandler               *session.Handler
 	MessageHandler               *handler.MessageHandler
 	MessageSuggestionHandler     *handler.MessageSuggestionHandler
@@ -210,6 +212,12 @@ func NewRouter(params RouterParams) *gin.Engine {
 	r.POST("/api/v1/local-browser/extension/authorize", params.SessionHandler.BrowserSkillAuthorize)
 	r.POST("/api/v1/local-browser/internal", params.SessionHandler.BrowserSkillInternal)
 
+	// Collaboration traffic and the collaboration server's ACL bridge both
+	// authenticate without a user session (path-scoped cookie and shared
+	// secret respectively), so they must precede the global auth middleware.
+	RegisterUniverProxyRoutes(r, params.UniverProxy)
+	RegisterUniverInternalRoutes(r, params.UniverHandler)
+
 	// 认证中间件
 	r.Use(middleware.Auth(params.TenantService, params.UserService, params.TenantMemberService, params.TenantAPIKeyService, params.Config))
 
@@ -337,6 +345,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 		RegisterMemoryRoutes(v1, params.MemoryHandler, rbacGuards)
 		RegisterAutomationRoutes(v1, params.AutomationHandler, rbacGuards)
 		RegisterChunkerDebugRoutes(v1, rbacGuards)
+		RegisterUniverRoutes(v1, params.UniverHandler, rbacGuards)
 
 		// Fail fast if any declared API-key policy points at a route
 		// template that does not actually exist (typo / path drift). A

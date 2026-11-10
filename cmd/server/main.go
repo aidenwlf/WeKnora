@@ -40,6 +40,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/runtime"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Tencent/WeKnora/internal/univer"
 )
 
 func main() {
@@ -82,6 +83,7 @@ func main() {
 		resourceCleaner interfaces.ResourceCleaner,
 		systemSettingSvc interfaces.SystemSettingService,
 		modelCatalogSvc *service.ModelCatalogService,
+		univerMgr *univer.Manager,
 	) error {
 		// Create HTTP server
 		server := &http.Server{
@@ -96,6 +98,14 @@ func main() {
 
 		ctx, done := context.WithCancel(context.Background())
 		modelCatalogSvc.Start(ctx)
+
+		// Single-host deployments let the app own the collaboration server
+		// process; container deployments set UNIVER_MANAGED=false and run it
+		// as its own service. A failure here is not fatal: the spreadsheet
+		// tools simply report that they are unavailable.
+		if err := univerMgr.Start(ctx); err != nil {
+			logger.Warnf(ctx, "[univer] collaboration server not started: %v", err)
+		}
 
 		// Start the system_settings pubsub subscriber. Runs in its own
 		// goroutine and exits when ctx is cancelled at shutdown. Best-

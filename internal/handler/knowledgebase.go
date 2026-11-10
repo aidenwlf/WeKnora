@@ -503,6 +503,11 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 	// A partial indexing_strategy must not turn the omitted pipelines off.
 	// Missing flags keep the defaults: vector and keyword on, wiki and graph off.
 	fillOmittedIndexingFlags(body, &req)
+	// A collaborative knowledge base stores live units, not parsed files: no
+	// pipeline may be enabled on it, and no embedding model is involved.
+	if req.Type == types.KnowledgeBaseTypeUniver {
+		types.ForceCollaborativeKnowledgeBase(&req)
+	}
 	if err := validateExtractConfig(req.ExtractConfig); err != nil {
 		logger.Error(ctx, "Invalid extract configuration", err)
 		c.Error(err)

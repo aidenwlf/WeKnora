@@ -3005,9 +3005,16 @@ export default {
     statsIndexedMessages: 'Indexed Messages',
     statsNotConfigured: 'Message indexing not configured',
     statsNotConfiguredDesc: 'Enable and select an embedding model to start auto-indexing conversation messages',
+    clearIndexLabel: 'Clear Message Index',
+    clearIndexDescription: 'Pause indexing and remove this workspace’s message search index. Conversations and messages are kept.',
+    clearIndexButton: 'Clear Index',
+    clearIndexConfirm: 'Clear the message index for everyone in this workspace? Indexing will be paused. Conversations and messages will not be deleted, and old messages will not be automatically re-indexed. This cannot be undone.',
     toasts: {
       saveSuccess: 'Message management configuration saved',
-      saveFailed: 'Failed to save configuration: {message}'
+      saveFailed: 'Failed to save configuration: {message}',
+      loadFailed: 'Unable to load message index settings or statistics',
+      clearSuccess: 'Message index cleared. Indexing is paused until you enable it again.',
+      clearFailed: 'Index cleanup did not complete. Check the current state and retry: {message}'
     }
   },
   retrievalSettings: {
@@ -3893,6 +3900,7 @@ export default {
       typeLabel: 'Knowledge Base Type',
       typeDocument: 'Document-based',
       typeFAQ: 'FAQ Q&A',
+    typeUniver: 'Collaborative',
       typeDescription: 'FAQ suits structured Q&A datasets; document type supports file parsing and chunking; Wiki type auto-builds interlinked knowledge pages via LLM.',
       nameLabel: 'Knowledge Base Name',
       namePlaceholder: 'Enter knowledge base name',
@@ -4087,11 +4095,14 @@ export default {
         // Display names for the builtin attributes the gallery itself
         // declares. Attributes contributed by other sources fall back to the
         // pipeline's own wording (see the imageAttr namespace).
+        sourcePage: 'Page {page}',
         attr: {
           builtin_caption: 'Caption',
           builtin_caption_description: 'The model-generated description of the image.',
           builtin_ocr_text: 'OCR text',
           builtin_ocr_text_description: 'Text extracted from the image by OCR.',
+          builtin_page: 'Document page',
+          builtin_page_description: 'Group by source document, then sort by PDF page; unknown pages come last within each document.',
           builtin_created_at: 'Created time',
           builtin_created_at_description: 'When the owning document chunk was created.',
           builtin_updated_at: 'Updated time',
@@ -7202,6 +7213,7 @@ export default {
       keyword: 'Keyword'
     },
     quick: {
+      sheets: 'Open spreadsheets',
       newChat: 'New conversation',
       knowledgeBases: 'Open knowledge bases',
       agents: 'Open agents',
@@ -9575,5 +9587,24 @@ export default {
       description:
         'Observe the image attributes and describe the image first, then decide from the attributes whether to run OCR, saving model calls and speeding up parsing. When the image is recognised as a photograph of a correctable page or label, it is straightened and cropped before recognition to improve OCR accuracy; if that fails, the original image is used.'
     }
-  }
+  },
+  univer: {
+    kindSheet: 'Spreadsheet',
+    kindDoc: 'Document',
+    kindBase: 'Multi-dimensional table',
+    kindSlide: 'Slides',
+    title: 'Collaborative entries',
+    subtitle: 'Spreadsheets, documents, multi-dimensional tables and slide decks live here, edited together in real time and readable by the agent.',
+    create: 'New entry',
+    namePlaceholder: 'Entry name',
+    empty: 'No entries yet',
+    emptyHint: 'Create a spreadsheet, document, multi-dimensional table or slide deck; the agent and your teammates can edit it directly.',
+    open: 'Open',
+    delete: 'Delete',
+    deleteConfirm: 'The entry is removed from this list. Continue?',
+    loading: 'Loading entry…',
+    disabled: 'Collaborative knowledge bases are not enabled on this deployment',
+    created: 'Created',
+    loadFailed: 'Could not load the entry'
+  },
 }

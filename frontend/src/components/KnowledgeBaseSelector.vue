@@ -72,7 +72,7 @@ import { getRootZoom, rectToCssPx, cssViewportSize } from '@/utils/zoom'
 interface KnowledgeBase {
   id: string
   name: string
-  type?: 'document' | 'faq'
+  type?: 'document' | 'faq' | 'univer'
   knowledge_count?: number
   chunk_count?: number
   embedding_model_id?: string
@@ -105,10 +105,11 @@ const dropdownStyle = ref<Record<string, string>>({})
 const dropdownWidth = props.dropdownWidth ?? 300
 const offsetY = props.offsetY ?? 8
 
-// 过滤：只显示已初始化（有 embedding & summary）的
+// 过滤：只显示已初始化的。协同知识库不需要 embedding/summary 模型，
+// 仍然要能在对话里被选中，智能体才能读写其中的条目。
 const filteredKnowledgeBases = computed(() => {
   const valid = knowledgeBases.value.filter(
-    k => k.embedding_model_id && k.summary_model_id
+    k => k.type === 'univer' || (k.embedding_model_id && k.summary_model_id)
   )
   if (!searchQuery.value) return valid
   const q = searchQuery.value.toLowerCase()

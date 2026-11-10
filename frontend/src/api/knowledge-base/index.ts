@@ -324,7 +324,7 @@ export interface KnowledgeBaseStoreView {
 export function createKnowledgeBase(data: {
   name: string;
   description?: string;
-  type?: 'document' | 'faq';
+  type?: 'document' | 'faq' | 'univer';
   chunking_config?: any;
   image_processing_config?: ImageProcessingConfig;
   embedding_model_id?: string;

@@ -793,7 +793,7 @@ interface KB {
   pinned_at?: string;
   embedding_model_id?: string;
   summary_model_id?: string;
-  type?: 'document' | 'faq';
+  type?: 'document' | 'faq' | 'univer';
   vlm_config?: { enabled?: boolean; model_id?: string };
   extract_config?: { enabled?: boolean };
   storage_provider_config?: { provider?: string };
@@ -1471,6 +1471,9 @@ const requestDelete = (kb: KB) => {
 }
 
 const isInitialized = (kb: KB) => {
+  // Collaborative knowledge bases hold live units: they need no summary or
+  // embedding model, so they are always ready.
+  if ((kb.type || '') === 'univer') return true
   // LLM (summary) model is always required
   if (!kb.summary_model_id || kb.summary_model_id === '') return false
   // Embedding model only required when RAG indexing is enabled (vector or keyword)

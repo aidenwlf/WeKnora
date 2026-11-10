@@ -921,7 +921,9 @@ func (kb *KnowledgeBase) EnsureDefaults() {
 	// For existing rows where indexing_strategy is NULL, GORM Scan() returns
 	// DefaultIndexingStrategy() (vector+keyword=true). This block handles the
 	// case where a fresh struct was created in-memory without touching DB.
-	if kb.IndexingStrategy.IsZero() {
+	// A collaborative knowledge base stores live units, not parsed files: its
+	// strategy is deliberately all-off and must not be re-enabled here.
+	if kb.IndexingStrategy.IsZero() && !kb.IsUniver() {
 		kb.IndexingStrategy = DefaultIndexingStrategy()
 	}
 	// Sync legacy ExtractConfig.Enabled → IndexingStrategy.GraphEnabled

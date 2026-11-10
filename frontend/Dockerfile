@@ -48,6 +48,10 @@ ARG VITE_FRONTEND_COMMIT=unknown
 ENV VITE_FRONTEND_COMMIT=${VITE_FRONTEND_COMMIT}
 ARG VITE_BASE_PATH=/
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+# Univer Pro license (Slides/Bases and the collaboration client). Empty means
+# unlicensed: the editors keep working and show Univer's watermark.
+ARG VITE_UNIVER_LICENSE=
+ENV VITE_UNIVER_LICENSE=${VITE_UNIVER_LICENSE}
 RUN npm run build
 
 # ---------------------------------------------------------------------------

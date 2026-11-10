@@ -41,6 +41,14 @@ const emit = defineEmits<{
   (e: 'ready'): void
 }>()
 
+/**
+ * Univer Pro license. Empty means unlicensed: the license plugin is then not
+ * registered at all, which keeps the open-source Sheets and Docs editors free
+ * of the "license required" badge. Slides and Bases are Pro products and need
+ * a key to drop their watermark.
+ */
+const UNIVER_LICENSE = String(import.meta.env.VITE_UNIVER_LICENSE || '').trim()
+
 const host = ref<HTMLElement | null>(null)
 const loading = ref(true)
 let univerInstance: { dispose: () => void } | null = null
@@ -114,7 +122,7 @@ async function initPreset(kind: 'sheet' | 'doc') {
     collaboration: true,
     presets,
     plugins: [
-      [UniverLicensePlugin, { license: import.meta.env.VITE_UNIVER_LICENSE || undefined }],
+      ...(UNIVER_LICENSE ? [[UniverLicensePlugin, { license: UNIVER_LICENSE }]] : []),
       UniverCollaborationPlugin,
       collaborationPluginConfig(),
       UniverCollaborationClientUIPlugin,
@@ -232,9 +240,9 @@ async function initPlugin(kind: 'slide' | 'base') {
     override: [[IUndoRedoService, null], [IAuthzIoService, null], [IMentionIOService, null]],
   })
 
-  univer.registerPlugin(UniverLicensePlugin, {
-    license: import.meta.env.VITE_UNIVER_LICENSE || undefined,
-  })
+  if (UNIVER_LICENSE) {
+    univer.registerPlugin(UniverLicensePlugin, { license: UNIVER_LICENSE })
+  }
   univer.registerPlugin(UniverCollaborationPlugin)
   univer.registerPlugin(UniverRenderEnginePlugin)
   registerUnit(univer)

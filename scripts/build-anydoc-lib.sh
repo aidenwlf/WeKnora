@@ -131,11 +131,22 @@ prepare_patched_anydoc
 # --locked: build exactly the dependency versions in the committed Cargo.lock.
 # That lockfile is what pins the patched pdf-inspector/lopdf, so a silent
 # resolver drift must fail the build rather than ship an unaudited tree.
-cargo build --release --locked --manifest-path "$crate_dir/Cargo.toml" --target "$target"
+# Thin LTO (the crate's release profile) makes rustc embed LLVM bitcode in the
+# archive; the Go linker refuses to link cgo objects carrying a .llvmbc section
+# ("disallowed LTO section"). Disable LTO for this archive: the parser is I/O
+# bound and does not need cross-crate inlining.
+CARGO_PROFILE_RELEASE_LTO=false cargo build --release --locked --manifest-path "$crate_dir/Cargo.toml" --target "$target"
 
 dest="$crate_dir/lib/$lib_dir"
 mkdir -p "$dest"
 cp "$crate_dir/target/$target/release/$lib_name" "$dest/$lib_name"
+
+# rustc can leave LLVM bitcode sections in a staticlib; the Go linker refuses
+# cgo objects that carry them ("disallowed LTO section .llvmbc"). The archive
+# already holds the generated machine code, so the bitcode copy is dead weight.
+if command -v objcopy >/dev/null 2>&1; then
+  objcopy --remove-section=.llvmbc --remove-section=.llvmcmd "$dest/$lib_name"
+fi
 
 echo "Wrote $dest/$lib_name"
 echo "Build WeKnora with the archive: go build -tags anydoc ./cmd/server"

@@ -86,7 +86,7 @@ WeKnora 采用"主服务 + 前端 + 文档解析微服务"的三进程核心架�
 | `app` → `postgres` | PostgreSQL wire（GORM/pgx） | 业务数据 + BM25 + pgvector |
 | `app` ↔ `redis` | RESP（支持 TLS） | ① Asynq 任务队列（文档解析/富化/Wiki/记忆等任务）；② SSE 流断线续传的 Stream Manager（`STREAM_MANAGER_TYPE`）；③ `system_settings` 变更 Pub/Sub；④ Embed 渠道限流；⑤ 分布式 per-model 并发信号量 |
 | `app` → `neo4j` | Bolt（`bolt://neo4j:7687`） | GraphRAG 实体/关系存取 |
-| `app` → `searxng` / Web 搜索 provider | HTTP | SSRF 白名单校验（`SSRF_WHITELIST_EXTRA` 默认放行 compose 内 `searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio`；开启 `SSRF_DNS_WHITELIST_ONLY` 后只允许白名单出站） |
+| `app` → `searxng` / Web 搜索 provider | HTTP | SSRF 白名单校验（`SSRF_WHITELIST_EXTRA` 默认放行 compose 内 `searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio` 及 GitHub 技能下载域名 `codeload.github.com`；开启 `SSRF_DNS_WHITELIST_ONLY` 后只允许白名单出站） |
 | `app` → 向量库/对象存储/LLM 提供商 | 各自 SDK（HTTP/gRPC/MySQL 协议） | Doris 走 MySQL 协议 + Stream Load HTTP |
 | `app` → 沙箱后端 | Docker Engine API / Cube/E2B 控制面与数据面 | 会话执行、技能安装与文件产物；按空间沙箱配置选择 |
 | MCP 客户端 → `app` | Streamable HTTP（`/mcp/:endpoint_id`，每个端点独立 Bearer Token） | 内置 MCP Server，把空间的知识库检索等能力暴露给外部 MCP 客户端，见 [MCP 集成](../03-features/08-mcp.md) |

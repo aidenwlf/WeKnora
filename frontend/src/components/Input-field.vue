@@ -408,6 +408,7 @@ watch([selectedAgentId, agentMCPSelectionMode, agentSkillsSelectionMode], ([newA
     settingsStore.settings.selectedSkills = (settingsStore.settings.selectedSkills || [])
       .filter(name => allowed.has(name));
   }
+  settingsStore.persistSettings();
 });
 
 // 从 KB 对象里抽能力位，优先用 backend 显式的 capabilities 字段；否则回退到 indexing_strategy，
@@ -1161,7 +1162,11 @@ const writeLastChatModelID = (id: string) => {
 const initChatModelSelection = () => {
   const lastPick = readLastChatModelID();
   const currentSelectedModel = settingsStore.conversationModels.selectedChatModelId;
-  const initialSelection = lastPick || currentSelectedModel || '';
+  // A restored conversation keeps the model it was using; the browser's last
+  // pick only seeds new chats.
+  const initialSelection = settingsStore.activeSessionId && currentSelectedModel
+    ? currentSelectedModel
+    : (lastPick || currentSelectedModel || '');
   settingsStore.updateConversationModels({
     summaryModelId: initialSelection,
     selectedChatModelId: initialSelection,
@@ -1310,6 +1315,7 @@ const displayedReasoningLevel = computed(() => settingsStore.reasoningEffortOver
 const showReasoningSelector = ref(false);
 const selectReasoningLevel = (level: ReasoningLevel) => {
   settingsStore.reasoningEffortOverride = level === agentReasoningLevel.value ? '' : level;
+  settingsStore.persistSettings?.();
   showReasoningSelector.value = false;
 };
 watch([selectedModel, reasoningLevels, () => settingsStore.reasoningEffortOverride, () => settingsStore._isApplyingSessionState], () => {
@@ -1318,6 +1324,7 @@ watch([selectedModel, reasoningLevels, () => settingsStore.reasoningEffortOverri
   if (!settingsStore._isApplyingSessionState && selectedModel.value && settingsStore.reasoningEffortOverride
     && !reasoningLevels.value.includes(settingsStore.reasoningEffortOverride)) {
     settingsStore.reasoningEffortOverride = '';
+    settingsStore.persistSettings?.();
   }
 }, { immediate: true, flush: 'sync' });
 

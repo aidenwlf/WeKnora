@@ -453,12 +453,17 @@ const loadSessionAndHydrate = async (sid) => {
     // Capture before awaiting: onMounted sends and clears firstQuery while this
     // request is in flight. A new session must retain the createChat draft.
     const preserveDraft = Boolean(firstQuery.value);
+    // Enter the conversation's composer scope before the network round-trip so
+    // local per-session settings apply immediately (and survive a failed
+    // session-detail request). The server's last_request_state fills gaps
+    // only when no newer local snapshot exists.
+    useSettingsStoreInstance.beginSession(sid, preserveDraft);
     try {
         const sessionRes = await getSession(sid);
         if (sessionRes?.data && sid === session_id.value) {
             currentSession.value = sessionRes.data;
             const lastState = sessionRes.data.last_request_state;
-            useSettingsStoreInstance.hydrateSessionInputState(lastState, preserveDraft);
+            useSettingsStoreInstance.hydrateSessionInputState(lastState, preserveDraft, sid);
         }
     } catch (error) {
         console.error('Failed to load session data:', error);
@@ -2001,8 +2006,10 @@ onBeforeRouteLeave((to, from, next) => {
 onBeforeRouteUpdate((to, from, next) => {
     if (props.embeddedMode) return next()
     clearData()
-    // 仅"会话 → 会话"会落到这里；跨会话覆盖的还原放到 route.params 的 watch 里，
-    // 因为新会话的 getSession 也在那边触发，便于保证 restore→snapshot→apply 顺序。
+    // "会话 → 新对话" has no chatid and no session watcher to restore the
+    // defaults, so do it here. Session-to-session restoration stays in the
+    // route.params watcher to keep restore→snapshot→apply order.
+    if (!to.params.chatid) useSettingsStoreInstance.restoreDefaultsIfSnapshotted()
     next()
 })
 </script>

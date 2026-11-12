@@ -190,3 +190,63 @@ test('missing session state and first-send hydration preserve the current draft 
   assert.equal(JSON.stringify(store.settings), draft)
   assert.equal(store._defaultsSnapshot, null)
 })
+
+test('each conversation keeps its own composer state and leaves global defaults untouched', () => {
+  const store = useSettingsStore(createPinia())
+  selectDefaults(store)
+  const globalBefore = items.get('WeKnora_settings')
+
+  store.hydrateSessionInputState({
+    agent_id: 'agent-s1',
+    agent_enabled: true,
+    model_id: 'model-s1',
+    knowledge_base_ids: ['s1-kb'],
+    reasoning_effort: 'high',
+  }, false, 's1')
+  store.selectKnowledgeBases(['s1-kb-2'])
+  store.toggleWebSearch(true)
+  store.updateConversationModels({
+    selectedChatModelId: 'model-s1-2',
+    summaryModelId: 'model-s1-2',
+    rerankModelId: '',
+  })
+  store.reasoningEffortOverride = 'max'
+  store.persistSettings()
+
+  assert.equal(items.get('WeKnora_settings'), globalBefore, 'session edits must not rewrite global defaults')
+  assert.deepEqual(JSON.parse(items.get('WeKnora_settings_session:s1')!).selectedKnowledgeBases, ['s1-kb-2'])
+
+  store.restoreDefaultsIfSnapshotted()
+  assert.deepEqual(store.getSelectedKnowledgeBases(), ['default-kb'])
+  assert.equal(store.conversationModels.selectedChatModelId, '')
+
+  store.hydrateSessionInputState({ knowledge_base_ids: ['s2-server'] }, false, 's2')
+  assert.deepEqual(store.getSelectedKnowledgeBases(), ['s2-server'])
+  store.restoreDefaultsIfSnapshotted()
+
+  // Re-entering s1 prefers its local snapshot over the older server state.
+  store.hydrateSessionInputState({ knowledge_base_ids: ['server-old'] }, false, 's1')
+  assert.deepEqual(store.getSelectedKnowledgeBases(), ['s1-kb-2'])
+  assert.equal(store.conversationModels.selectedChatModelId, 'model-s1-2')
+  assert.equal(store.reasoningEffortOverride, 'max')
+  assert.equal(store.isWebSearchEnabled, true)
+  assert.equal(items.get('WeKnora_settings'), globalBefore)
+})
+
+test('first-send draft is stored in the new session instead of the older server state', () => {
+  const store = useSettingsStore(createPinia())
+  selectDefaults(store)
+  store.settings.selectedKnowledgeBases = ['draft-kb']
+
+  store.hydrateSessionInputState({ knowledge_base_ids: ['server-kb'] }, true, 'new-session')
+
+  assert.deepEqual(store.getSelectedKnowledgeBases(), ['draft-kb'])
+  assert.deepEqual(
+    JSON.parse(items.get('WeKnora_settings_session:new-session')!).selectedKnowledgeBases,
+    ['draft-kb'],
+  )
+  store.restoreDefaultsIfSnapshotted()
+  // A new chat inherits the global defaults it was created from, including
+  // the draft that seeded it.
+  assert.deepEqual(store.getSelectedKnowledgeBases(), ['draft-kb'])
+})

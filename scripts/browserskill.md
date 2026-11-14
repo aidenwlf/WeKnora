@@ -1,15 +1,15 @@
 # BrowserSkill upstream integration
 
-The extension and daemon are based on the official `ext-v0.4.1` and
-`cli-v0.4.1` tags, both at commit
-`b8f2d4f0fa35c8c7c866229e1cf3b3329ae39de5`. Both report version `0.4.1`
+The extension and daemon are based on the official `ext-v0.4.2` and
+`cli-v0.4.2` tags, both at commit
+`fbea9e8a191e05971015df13c79b23fc1ceaba14`. Both report version `0.4.2`
 and protocol `1.8`; the exact source baseline is recorded in
 `scripts/browserskill-release.json`. The daemon is built with
 `cargo build --locked --release -p bsk` from the same commit as the extension.
 Native builds require Rust/Cargo and a C compiler (plus CMake on Linux).
 Docker builds on the target architecture.
 
-The 0.4.1 extension requires daemon protocol 1.6 or later, so the previous
+The 0.4.2 extension requires daemon protocol 1.6 or later, so the previous
 0.3.1 daemon (protocol 1.3) cannot connect. Target-policy actions require
 protocol 1.8 on both peers. End active tasks, rebuild/redeploy the app and
 restart it to replace its running daemon, then update the frontend and extension.
@@ -77,7 +77,7 @@ stops preview polling in WeKnora. Completed tasks use native session stop.
 
 The preview and focus side channel is now the official optional UI channel
 documented in the upstream
-[remote connection contract](https://github.com/Tencent/BrowserSkill/blob/b8f2d4f0fa35c8c7c866229e1cf3b3329ae39de5/docs/remote-extension-connection.md#optional-ui-channel).
+[remote connection contract](https://github.com/Tencent/BrowserSkill/blob/fbea9e8a191e05971015df13c79b23fc1ceaba14/docs/remote-extension-connection.md#optional-ui-channel).
 Only authenticated remote sockets handle these request frames; they bypass the
 native automation queue and never start a session:
 
@@ -98,7 +98,7 @@ error except `unknown_method` to a transient preview failure. Extensions built
 before PR #296 answer `unknown_method`;
 WeKnora then disables preview polling and reports the extension as outdated.
 
-## Behavior of the 0.4.1 extension
+## Behavior of the 0.4.2 extension
 
 - Remote tasks use official dedicated Agent Windows. No `tabGroups` permission.
 - Popup attribution follows upstream PR #297: only a main-frame navigation
@@ -123,7 +123,7 @@ WeKnora then disables preview polling and reports the extension as outdated.
 - Human help follows the upstream focus/confirmation behavior.
 - Remote upload/download remain unsupported, as defined upstream.
 
-Users need extension 0.4.1 or later, from the Chrome Web Store, Edge Add-ons or
+Users need extension 0.4.2 or later, from the Chrome Web Store, Edge Add-ons or
 the bundled ZIP. Upgrade unpacked installs by replacing the existing extension
 directory and reloading it after ending active tasks. Keeping the extension ID preserves the
 migrated credentials; installing under a new ID requires pairing again.
